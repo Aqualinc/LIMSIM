@@ -45,3 +45,13 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Files too big to have on GitHub
+/Datasets/MyRECfile.csv
+/Datasets/PredHydIndices.Rdata
+/Datasets/RECdata_plus8.Rdata
+/Datasets/RECandFWENZ.Rdata
+/Datasets/RECdata_9.Rdata
+/Datasets/WQnetwork_FlowTS.Rdata
+/Functions/WqRFMods_3p3.Rdata
+/Functions/DeltaInd_v2.Rdata.Rdata
