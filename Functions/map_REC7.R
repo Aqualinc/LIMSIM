@@ -234,7 +234,7 @@ legend(x=pos, legend = pretty.cut.labs(divs, p=name, rounding = MyRound), col = 
 pretty.cut.labs <- function(cuts, RECvar, p, s1 = "<", s2 = "<=", rounding = MyRound) {
   if(any(cuts == 0)) {
     if(any(cuts<0)){
-      cuts <- paste("-",(formatC(-cuts, digits = min(1, 1 - floor(log10(median(-cuts)))), format = "f") ))
+      cuts <- (formatC(cuts, digits = min(1, 1 - floor(log10(abs(median(cuts))))), format = "f") )
     }else{
   cuts <- formatC(cuts, digits = max(1, 1 - floor(log10(median(cuts)))), format = "f") 
     }
