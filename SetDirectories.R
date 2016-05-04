@@ -4,6 +4,6 @@ SetDirectories<-function(rootdir){
   direct$mod<-paste(rootdir,"/CallModels",sep="") 
   direct$data<-paste(rootdir,"/Datasets",sep="")
   direct$root<-rootdir
-  
+  direct$proj<-direct$data
   return(direct)
 }
