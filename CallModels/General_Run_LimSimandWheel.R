@@ -11,24 +11,31 @@ require(randomForest)
 #                   Define directories                       #
 ##############################################################
 
-rootdir<-"G:/Common Data/R_Scripts/Beta Version"
-setwd(rootdir); source("SetDirectories.r"); dir<-SetDirectories(rootdir)
-dir$proj<-"G:/ARL Projects/Other/C12056_MSI - Water Wheel/Analysis/Modelling/AnalysiswithR/Datasets"
+rootdir<-"H:/GitRepositories/LimSim"
+setwd(rootdir)
+source("SetDirectories.r")
+dir<-SetDirectories(rootdir)
+#dir$proj<-"H:/GitRepositories/LimSim/CallModel/Datasets"
 ##############################################################
 #                    Load functions                          #
 ##############################################################
-source(paste(dir$fun,"GeneralFunctions.r",sep="/"))
-source(paste(dir$fun,"map_REC7.r",sep="/"))
-source(paste(dir$fun,"LIMSIM Functions.R",sep="/"))
-source(paste(dir$fun,"Flow&AbstractionFunctions.R",sep="/"))
-source(paste(dir$fun,"WaterQ&PeriphytonFunctions.R",sep="/"))
-source(paste(dir$fun,"FindCatchment.R",sep="/"))
-source(paste(dir$fun,"HabitatFunctions.R",sep="/"))
+source(file.path(dir$fun,"GeneralFunctions.r"))
+source(file.path(dir$fun,"map_REC7.r"))
+source(file.path(dir$fun,"LIMSIM Functions.R"))
+source(file.path(dir$fun,"Flow&AbstractionFunctions.R"))
+source(file.path(dir$fun,"WaterQ&PeriphytonFunctions.R"))
+source(file.path(dir$fun,"FindCatchment.R"))
+source(file.path(dir$fun,"HabitatFunctions.R"))
 
 ##############################################################
 #            assemble data for a domain                      #
 ##############################################################
-load(paste(dir$data,"RECdata_9.RData",sep="/"))
+load(file.path(dir$data,"RECdata_9.RData"))
+
+#Open the FWENZ data from the data directory. If it doesn't exist, stop and explain the problem.
+FWENZDataFileName <- "RECandFWENZ.RData"
+if (!file.exists(file.path(dir$data,FWENZDataFileName))){stop("File ",file.path(dir$data,FWENZDataFileName), " is needed and doesn't exist")}
+load(file.path(dir$data,FWENZDataFileName))
 
 ##############################################################
 #            select subset of data                           #
@@ -96,14 +103,15 @@ names(ManageScenarios)<-c("AllocQ","MinQ")
 
 LandManagement<-c("Fair")               #Select a managemnet type of: "Good", "Fair" or "Poor"
 REC_OUT<-list()
-#for (i in 1:length(ManageScenarios[,1])){
- i<-1 
+#for (i in 1){      #for testing only
+for (i in 1:length(ManageScenarios[,1])){
+ #i<-1 
   print(paste("########## SCENARIO ",i," ############",sep=""))
   REC_OUT[[i]]<-RunOne(MyREC=MyREC,AllocQ=ManageScenarios[i,1],MinQ=ManageScenarios[i,2],
                        pick=pick,LandManagement=LandManagement,IrrigableAreaTarget=IrrigableAreaTarget,
                        PropIrri=PropIrri,TakeAll=TakeAll,SysCap=SysCap,EffIrriArea=EffIrriArea,
                        WQModel=WQModel,QWModel=QWModel)
-#}
+}
 
 #OR Run just one scenario:
 #REC_OUT<-RunOne(MyREC=MyREC,AllocQ=1.5,MinQ=0.5,pick=pick,LandManagement=LandManagement,IrrigableAreaTarget=100,PropIrri=1,TakeAll=TakeAll)
@@ -129,12 +137,12 @@ TerminalReach<-match(setdiff(REC_OUT[[1]]$tnode,REC_OUT[[1]]$fnode),REC_OUT[[1]]
 TerminalReach<-c(TerminalReach,which(REC_OUT[[1]][,"MALF"]==max(REC_OUT[[1]][,"MALF"])))
 points(REC_OUT[[1]][TerminalReach,"segXcentroid"],REC_OUT[[1]][TerminalReach,"segYcentroid"])
 
-setwd(dir$data)
-load(file = "UseRECFWENZ.RData")
+
 pick2<-match(MyREC$NZReach,row.names(FWENZ))
 MyFWENZ<-FWENZ[pick2,];rm(NewREC,FWENZ)
-x11();MapRivers(RECvar=MyFWENZ$segAveTWarm, REC=REC_OUT[[i]], pos=pos_sel, myCol = "lightblue", myScale = 0.5, name = "segAvTWarm", main="Segment av. warm temperature",n.breaks=10 , col.ord=T)                           
-x11();MapRivers(RECvar=MyFWENZ$segAveTCold, REC=REC_OUT[[i]], pos=pos_sel, myCol = "lightblue", myScale = 0.5, name = "segAvTCold", main="Segment av. cold temperature",n.breaks=10 , col.ord=T)                           
+x11();MapRivers(RECvar=MyFWENZ$segAveTWarm/10, REC=REC_OUT[[i]], pos=pos_sel, myCol = "lightblue", myScale = 0.5, name = "segAvTWarm", main="Segment av. warm temperature",n.breaks=10 , col.ord=T)                           
+x11()
+MapRivers(RECvar=MyFWENZ$segAveTCold/10, REC=REC_OUT[[i]], pos=pos_sel, myCol = "lightblue", myScale = 0.5, name = "segAvTCold", main="Segment av. cold temperature",n.breaks=10 , col.ord=T)                           
 
 
 ##############################################################################
@@ -176,7 +184,7 @@ MakePlots(MyREC1=REC_OUT[[sel_sc[1]]],MyREC2=REC_OUT[[sel_sc[2]]],MyREC3=REC_OUT
 ##############################################################################
 #                   PERFORM CATCHMENT ANALYSIS                               #
 ##############################################################################
-#CHoose limits for teh same 20 indicators listed eariler
+#CHoose limits for the same 20 indicators listed eariler
 MyParlims<-list()
 MyParlims[[1]]<-c(0,1,2,6,8)            #   1.  The total abstraction for irrigation (m3/s)
 MyParlims[[2]]<-c(100,30,20,10,0)       #   2.  The percentage of time abstraction is stopped due to minimum flows (%)
