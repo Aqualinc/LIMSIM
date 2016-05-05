@@ -34,9 +34,9 @@ Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWA
   
   print("Calculating irrigation takes and reliability...")
       if (length(AllocQ==1)){  
-        MyREC$MinQ<-matrix(MinQ,length(pick),1); MyREC$AllocQ<-matrix(AllocQ,length(pick),1)
+        MyREC$MinQ<-matrix(MinQ,length(pick),1); MyREC$AllocQ<-matrix(AllocQ,length(pick),1); MyREC$GWAlloc<-matrix(GWAlloc,length(pick),1)
       }else{
-        MyREC$MinQ<-MinQ; MyREC$AllocQ<-AllocQ
+        MyREC$MinQ<-MinQ; MyREC$AllocQ<-AllocQ; MyREC$GWAlloq<-GWAlloc
       }  
   
   MyREC$BFIorig<-MyREC$BFI;MyREC$FRE2orig<-MyREC$FRE2;MyREC$FRE3orig<-MyREC$FRE3;MyREC$nNegorig<-MyREC$nNeg
@@ -44,34 +44,35 @@ Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWA
   
   MyREC$TheTake <-0; MyREC$IrriAreaIrrigated<-NA; MyREC$freq.man <-NA; MyREC$freq.min <-NA; MyREC$freq.reliability <-NA;MyREC$AllocQUse<-NA
   
-  ind1<-which(MyREC$AllocQ>0)  #Determine those reaches where there is some allocaiton
+  ind1<-which(MyREC$AllocQ>0)  #Determine those reaches where there is some allocation
   if (length(ind1)>0){
-  MyRECtemp<-MyREC[ind1,];pick2<-pick[ind1]
-  MyRECtemp$TheTake <- sapply(pick2, TakeRate, RegAllocation=NULL, Data = MyRECtemp,TakeAll=TakeAll)  
-  MyRECtemp$AllocQUse<-MyRECtemp$TheTake/(MyRECtemp$MALF*MyRECtemp$AllocQ)
-  MyRECtemp$AllocQUse[MyRECtemp$TheTake==0]<-NA
-  MyRECtemp$IrriAreaIrrigated<-NA
-  ind<-which(MyRECtemp$TheTake>0)
-  
-  MyRECtemp$IrriAreaIrrigated[ind]<-MyRECtemp$TheTake[ind]*1000*10000/SysCap/(MyRECtemp[ind,"usIrriArea"]*EffIrriArea)*100
-  
-  Restriction2 <- Doug.rbind.list(lapply(pick2, freq.restrict, prop=NULL, RegAllocation=NULL,Plot=F, Data = MyRECtemp,Data1=MyREC)) # turn Plot=F for speed.
-  MyRECtemp$freq.man <- Restriction2$freq.man; MyRECtemp$freq.min <- Restriction2$freq.min; MyRECtemp$freq.reliability <- Restriction2$freq.reliability
-  MyRECtemp$freq.man[MyRECtemp$TheTake==0]<-NA; MyRECtemp$freq.min[MyRECtemp$TheTake==0]<-NA; MyRECtemp$freq.reliability[MyRECtemp$TheTake==0]<-NA;
-  
-  MyRECtemp$BFI<-MyRECtemp$BFI+predict(dBFImod,newdata=MyRECtemp)
-  MyRECtemp$BFI[MyRECtemp$TheTake==0]<-MyRECtemp$BFIorig[MyRECtemp$TheTake==0]
-  
-  MyRECtemp$FRE2<-MyRECtemp$FRE2+predict(dFRE2mod,newdata=MyRECtemp)
-  MyRECtemp$FRE2[MyRECtemp$TheTake==0]<-MyRECtemp$FRE2orig[MyRECtemp$TheTake==0]
-  
-  MyRECtemp$FRE3<-MyRECtemp$FRE3+predict(dFRE3mod,newdata=MyRECtemp)
-  MyRECtemp$FRE3[MyRECtemp$TheTake==0]<-MyRECtemp$FRE3orig[MyRECtemp$TheTake==0]
-  
-  MyRECtemp$nNeg<-MyRECtemp$nNeg+predict(dnNegMOD,newdata=MyRECtemp)
-  MyRECtemp$nNeg[MyRECtemp$TheTake==0]<-MyRECtemp$nNegorig[MyRECtemp$TheTake==0]
-  
-  MyREC[ind1,]<-MyRECtemp
+    MyRECtemp           <- MyREC[ind1,]                                               #Find the subset of the reaches that have an allocation greater than 0
+    pick2               <- pick[ind1]                                                 #
+    MyRECtemp$TheTake   <- sapply(pick2, TakeRate, RegAllocation=NULL, SysCap = SysCap, EffIrriArea = EffIrriArea, Data = MyRECtemp,TakeAll=TakeAll)  
+    MyRECtemp$AllocQUse <-MyRECtemp$TheTake/(MyRECtemp$MALF*MyRECtemp$AllocQ)                             #TheTake / allocation
+    MyRECtemp$AllocQUse[MyRECtemp$TheTake==0]<-NA
+    MyRECtemp$IrriAreaIrrigated<-NA
+    ind                 <-which(MyRECtemp$TheTake>0)
+    
+    MyRECtemp$IrriAreaIrrigated[ind]<-MyRECtemp$TheTake[ind]*1000*10000/SysCap/(MyRECtemp[ind,"usIrriArea"]*EffIrriArea)*100
+    
+    Restriction2 <- Doug.rbind.list(lapply(pick2, freq.restrict, prop=NULL, RegAllocation=NULL,Plot=F, Data = MyRECtemp,Data1=MyREC)) # turn Plot=F for speed.
+    MyRECtemp$freq.man <- Restriction2$freq.man; MyRECtemp$freq.min <- Restriction2$freq.min; MyRECtemp$freq.reliability <- Restriction2$freq.reliability
+    MyRECtemp$freq.man[MyRECtemp$TheTake==0]<-NA; MyRECtemp$freq.min[MyRECtemp$TheTake==0]<-NA; MyRECtemp$freq.reliability[MyRECtemp$TheTake==0]<-NA;
+    
+    MyRECtemp$BFI<-MyRECtemp$BFI+predict(dBFImod,newdata=MyRECtemp)
+    MyRECtemp$BFI[MyRECtemp$TheTake==0]<-MyRECtemp$BFIorig[MyRECtemp$TheTake==0]
+    
+    MyRECtemp$FRE2<-MyRECtemp$FRE2+predict(dFRE2mod,newdata=MyRECtemp)
+    MyRECtemp$FRE2[MyRECtemp$TheTake==0]<-MyRECtemp$FRE2orig[MyRECtemp$TheTake==0]
+    
+    MyRECtemp$FRE3<-MyRECtemp$FRE3+predict(dFRE3mod,newdata=MyRECtemp)
+    MyRECtemp$FRE3[MyRECtemp$TheTake==0]<-MyRECtemp$FRE3orig[MyRECtemp$TheTake==0]
+    
+    MyRECtemp$nNeg<-MyRECtemp$nNeg+predict(dnNegMOD,newdata=MyRECtemp)
+    MyRECtemp$nNeg[MyRECtemp$TheTake==0]<-MyRECtemp$nNegorig[MyRECtemp$TheTake==0]
+    
+    MyREC[ind1,]<-MyRECtemp
   }
   #browser()
 return(MyREC)
@@ -106,18 +107,20 @@ GenFDC <- function(ThisNZReach = 13524724, P = Perc, Data = MyREC) {
 ###############################################################################
 # compute the amount of take from any location
 ###############################################################################
-TakeRate <- function(ThisNZReach = 13524724, RegAllocation=0.5, Data = 0, UseRate = 0.58,TakeAll=TakeAll) {  # use rate = irrigation use l/s/ Ha
+TakeRate <- function(ThisNZReach = 13524724, RegAllocation=0.5, Data = 0, SysCap = 0.58,TakeAll=TakeAll,EffIrriArea=0.8) {  # use rate = irrigation use l/s/ Ha, i.e 5 mm per day
   #This function determines the Take rate or a certain reach, which is the smaller of the Allocation and the maximum demand 
   ThisRow <- which(Data$NZReach == ThisNZReach) # the row in the dataset for this NZREach
   #browser()
-  if (is.null(RegAllocation)==T){RegAllocation<-Data$AllocQ[ThisRow]}
-  if(Data[ThisRow,"usIrriArea"] > 10000&!is.na(Data[ThisRow,"usIrriArea"])==T) {   
-    MaxDemand <-  Data[ThisRow, "usIrriArea"]/10000 * UseRate/1000*0.8 #The upstream irrigable area multiplied by the     
-    RegulatedTake <-  RegAllocation * Data[ThisRow, "MALF"]  # the "Regulatory take" i.e. the allowed according to a % of MALF rule (MALf from the hyd predictions data)
-    Take <- min(MaxDemand, RegulatedTake)
+  if (is.null(RegAllocation)){RegAllocation<-Data$AllocQ[ThisRow]}                  #If RegAllocation is null, set it to the Allocation flow (as a fraction of MALF)
+  if(Data[ThisRow,"usIrriArea"] > 10000 & !is.na(Data[ThisRow,"usIrriArea"])) {     #Check if there is more than a hectare upstream
+    MaxDemand     <- Data[ThisRow, "usIrriArea"] / 10000 * SysCap / 1000 * EffIrriArea     #The upstream irrigable area (converted from m2 to hectares) multiplied by the use rate (converted from l/s to m3/s) multiplied by an efficiency factor     
+    SWTake <- RegAllocation * Data[ThisRow, "MALF"]                                 #The maximum surface water take in cumecs
+    GWTake <- Data[ThisRow, "AqBaseFlow"] * Data[ThisRow,"TrueBFI"] * Data[ThisRow, "MeanFlow"] * Data[ThisRow, "GWAlloc"]
+    RegulatedTake <- SWTake + GWTake
+    Take          <- min(MaxDemand, RegulatedTake)
     if (TakeAll==1) {Take<-RegulatedTake}
   } else {
-    Take <- 0  # we assume the landscape is too steep to irrigate No water  is taken
+    Take <- 0                                                                       #If the up stream irrigable area is less than a hectare then we assume the landscape is too steep to irrigate No water is taken
   }
   return(Take)}
 
