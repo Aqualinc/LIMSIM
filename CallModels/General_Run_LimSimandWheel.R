@@ -42,6 +42,8 @@ GWDataFileName <- "RECGroundwater.RData"
 if (!file.exists(file.path(dir$data,GWDataFileName))){stop("File ",file.path(dir$data,GWDataFileName), " is needed and doesn't exist")}
 load(file.path(dir$data,GWDataFileName))
 
+myREC <- merge(MyREC,RECGroundwater)
+
 ##############################################################
 #            select subset of data                           #
 ##############################################################
@@ -83,7 +85,7 @@ AllocQ_sel <-as.double(c(0.5,1.0))      #Define Allocation volumes (as a proport
 GWAlloc    <-as.double(c(0.0,0.0))      #Define groundwater allocation as a fraction of mean annual recharge
 #____________________________________________________________________________________________
 #USER DEFINED SETTINGS FOR ALL SCENARIOS
-TakeAll             <-0                 #Define whether to take ALL alloaceted water (1) or just that for irrigable area (0)
+TakeAll             <-0                 #Define whether to take ALL allocated water (1) or just that for irrigable area (0)
 IrrigableAreaTarget <-100               #Proportion of irrigable area we will aim to irrigate (0:100)
 PropIrri            <-1                 #Binary switch to indicate whether to scale land management factors by  proportion of upstream pasture that is irrigated
 SysCap              <-0.58              #System capacity (l/s) default to 0.58 l/s (5 mm/d)
