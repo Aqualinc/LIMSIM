@@ -36,10 +36,11 @@ AllMyREC<-list(MyREC1=MyREC1,MyREC2=MyREC2,MyREC3=MyREC3)
 return(AllMyREC)
 }
 ###################################################################################################################
+# MakePick is a function that returns all the NZReach numbers in an REC table with the option to restrict by strahler order or region
 ####################################################################################################################
 MakePick<-function(MyREC=NULL,MinOrder=5,Region=5){
   if (Region<16){
-pick<-MyREC$NZReach[MyREC$ORDER > MinOrder&MyREC$NZReach>=(Region)*1000000&MyREC$NZReach<(Region+1)*1000000]
+pick<-MyREC$NZReach[MyREC$ORDER > MinOrder & MyREC$NZReach >= (Region) * 1000000 & MyREC$NZReach < (Region+1) * 1000000]
   }else{ #Otherwise the whole country is selected
     pick<-MyREC$NZReach[MyREC$ORDER > MinOrder]
   }
