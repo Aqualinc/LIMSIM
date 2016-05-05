@@ -40,7 +40,7 @@ myCI<-list(Good=-1.96,Fair=0,Poor=1.96)
 #                            CALLING FUNCTION                                     #
 ###################################################################################Q
 
-Run_WQandPeri<-function(MyREC=NULL,LandManagement="Fair",IrrigableAreaTarget=NULL,AllocQ=0,PropIrri=0,SCCS=FALSE,dRegime=TRUE,WQModel="Unwin"){
+Run_WQandPeri<-function(MyREC=NULL,LandManagement="Fair",IrrigableAreaTarget=NULL,AllocQ=0,GWAlloc=0,PropIrri=0,SCCS=FALSE,dRegime=TRUE,WQModel="Unwin"){
   
   if (IrrigableAreaTarget>0){
     MyREC$usPastoral<-pmax(MyREC$usPastoral,pmin(1,MyREC$usIrriArea/MyREC$CATCHAREA*MyREC$IrriAreaIrrigated*IrrigableAreaTarget/100))}  

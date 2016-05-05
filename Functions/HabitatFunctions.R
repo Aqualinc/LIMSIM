@@ -14,7 +14,7 @@
 ###################################################################################
 ###################################################################################
 
-Run_HabitatFunctions<-function(MyREC=NULL,MinQ=0,method="Jowett"){
+Run_HabitatFunctions<-function(MyREC=NULL,MinQ=0,GWAlloc=0,method="Jowett"){
 
   if (method=="Booker"){
     print("Calculating BOOKER QW relationships...")

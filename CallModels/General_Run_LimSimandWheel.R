@@ -37,6 +37,11 @@ FWENZDataFileName <- "RECandFWENZ.RData"
 if (!file.exists(file.path(dir$data,FWENZDataFileName))){stop("File ",file.path(dir$data,FWENZDataFileName), " is needed and doesn't exist")}
 load(file.path(dir$data,FWENZDataFileName))
 
+#Open the Groundwater data from the data directory
+GWDataFileName <- "RECGroundwater.RData"
+if (!file.exists(file.path(dir$data,GWDataFileName))){stop("File ",file.path(dir$data,GWDataFileName), " is needed and doesn't exist")}
+load(file.path(dir$data,GWDataFileName))
+
 ##############################################################
 #            select subset of data                           #
 ##############################################################
@@ -73,33 +78,34 @@ MyREC<-MyREC[match(pick, MyREC$NZReach),]
 
 #_____________________________________________________________
 #DEFINING ALLOCATION SCENARIOS
-MinQ_sel<-as.double(c(0.7,0.9))         #Define minimum flows (as a proportion of MALF)
-AllocQ_sel<-as.double(c(0.5,1.0))       #Define Allocation volumes (as a proportion of MALF)
+MinQ_sel   <-as.double(c(0.7,0.9))      #Define minimum flows (as a proportion of MALF)
+AllocQ_sel <-as.double(c(0.5,1.0))      #Define Allocation volumes (as a proportion of MALF)
+GWAlloc    <-as.double(c(0.0,0.0))      #Define groundwater allocation as a fraction of mean annual recharge
 #____________________________________________________________________________________________
 #USER DEFINED SETTINGS FOR ALL SCENARIOS
-TakeAll<-0                              #Define whether to take ALL alloaceted water (1) or just that for irrigable area (0)
-IrrigableAreaTarget<-100                #Proportion of irrigable area we will aim to irrigate (0:100)
-PropIrri<-1                             #Binary switch to indicate whether to scale land management factors by  proportion of upstream pasture that is irrigated
-SysCap<-0.58                            #System capacity (l/s) default to 0.58 l/s (5 mm/d)
-EffIrriArea<-0.8                        #Effective irrigable area - scale irrigable area to get actual irrigated area (0:100)
-WQModel<-"Unwin"                        #Select which WaterQuality model to use Unwin or McDowell (default is Unwin)
-QWModel<-"Jowett"                       #Select which FlowWidth model to use: Jowett or Booker (default is Jowett)
+TakeAll             <-0                 #Define whether to take ALL alloaceted water (1) or just that for irrigable area (0)
+IrrigableAreaTarget <-100               #Proportion of irrigable area we will aim to irrigate (0:100)
+PropIrri            <-1                 #Binary switch to indicate whether to scale land management factors by  proportion of upstream pasture that is irrigated
+SysCap              <-0.58              #System capacity (l/s) default to 0.58 l/s (5 mm/d)
+EffIrriArea         <-0.8               #Effective irrigable area - scale irrigable area to get actual irrigated area (0:100)
+WQModel             <-"Unwin"           #Select which WaterQuality model to use Unwin or McDowell (default is Unwin)
+QWModel             <-"Jowett"          #Select which FlowWidth model to use: Jowett or Booker (default is Jowett)
 #############################################################
 #  POPULATE SCENARIOS
 
 #Function to run "LIMSIM" for one scenario
-RunOne=function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,pick=pick,LandManagement="Fair",IrrigableAreaTarget=100,PropIrri=1,
+RunOne=function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,LandManagement="Fair",IrrigableAreaTarget=100,PropIrri=1,
                 TakeAll=TakeAll,SysCap=SysCap,EffIrriArea=EffIrriArea,WQModel=WQModel,QWModel=QWModel){
-  MyREC1<-Run_FlowandAbstraction(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,pick=pick,TakeAll=TakeAll,SysCap=SysCap,
+  MyREC1<-Run_FlowandAbstraction(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,TakeAll=TakeAll,SysCap=SysCap,
                                  EffIrriArea=EffIrriArea)
   MyREC1<-Run_WQandPeri(MyREC=MyREC1,LandManagement=LandManagement,IrrigableAreaTarget=IrrigableAreaTarget,
-                        AllocQ=AllocQ,PropIrri=PropIrri,WQModel=WQModel)
-  MyREC1<-Run_HabitatFunctions(MyREC=MyREC1,MinQ=MinQ,method=QWModel)
+                        AllocQ=AllocQ,GWAlloc=GWAlloc,PropIrri=PropIrri,WQModel=WQModel)
+  MyREC1<-Run_HabitatFunctions(MyREC=MyREC1,MinQ=MinQ,GWAlloc=GWAlloc,method=QWModel)
   return(MyREC1)
 }
 
-ManageScenarios<-expand.grid(AllocQ_sel,MinQ_sel)
-names(ManageScenarios)<-c("AllocQ","MinQ")
+ManageScenarios<-expand.grid(AllocQ_sel,MinQ_sel,GWAlloc)
+names(ManageScenarios)<-c("AllocQ","MinQ","GWAlloc")
 
 LandManagement<-c("Fair")               #Select a managemnet type of: "Good", "Fair" or "Poor"
 REC_OUT<-list()
@@ -107,14 +113,14 @@ REC_OUT<-list()
 for (i in 1:length(ManageScenarios[,1])){
  #i<-1 
   print(paste("########## SCENARIO ",i," ############",sep=""))
-  REC_OUT[[i]]<-RunOne(MyREC=MyREC,AllocQ=ManageScenarios[i,1],MinQ=ManageScenarios[i,2],
+  REC_OUT[[i]]<-RunOne(MyREC=MyREC,AllocQ=ManageScenarios[i,1],MinQ=ManageScenarios[i,2],GWAlloc=ManageScenarios[i,3],
                        pick=pick,LandManagement=LandManagement,IrrigableAreaTarget=IrrigableAreaTarget,
                        PropIrri=PropIrri,TakeAll=TakeAll,SysCap=SysCap,EffIrriArea=EffIrriArea,
                        WQModel=WQModel,QWModel=QWModel)
 }
 
 #OR Run just one scenario:
-#REC_OUT<-RunOne(MyREC=MyREC,AllocQ=1.5,MinQ=0.5,pick=pick,LandManagement=LandManagement,IrrigableAreaTarget=100,PropIrri=1,TakeAll=TakeAll)
+#REC_OUT<-RunOne(MyREC=MyREC,AllocQ=1.5,MinQ=0.5,GWAlloc=0,pick=pick,LandManagement=LandManagement,IrrigableAreaTarget=100,PropIrri=1,TakeAll=TakeAll)
 
 #OPTION TO SAVE FILES FOR REUSE LATER....
 #setwd(dir$proj)

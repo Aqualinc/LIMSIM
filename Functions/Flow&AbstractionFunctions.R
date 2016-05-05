@@ -19,7 +19,7 @@
 ###################################################################################
 #CONTROLLING FUNCTION THAT CREATES ALL OF THE FLOW AND ABSTRACTION VARIABLES IN MY REC
 ###################################################################################
-Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,pick=pick,TakeAll=0,SysCap=0.58,EffIrriArea=0.8){
+Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,TakeAll=0,SysCap=0.58,EffIrriArea=0.8){
   
   
   #setwd(dir$fun)
