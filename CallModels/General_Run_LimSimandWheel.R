@@ -42,7 +42,7 @@ GWDataFileName <- "RECGroundwater.RData"
 if (!file.exists(file.path(dir$data,GWDataFileName))){stop("File ",file.path(dir$data,GWDataFileName), " is needed and doesn't exist")}
 load(file.path(dir$data,GWDataFileName))
 
-myREC <- merge(MyREC,RECGroundwater)
+MyREC <- merge(MyREC,RECGroundwater)
 
 ##############################################################
 #            select subset of data                           #
@@ -82,7 +82,7 @@ MyREC<-MyREC[match(pick, MyREC$NZReach),]
 #DEFINING ALLOCATION SCENARIOS
 MinQ_sel   <-as.double(c(0.7,0.9))      #Define minimum flows (as a proportion of MALF)
 AllocQ_sel <-as.double(c(0.5,1.0))      #Define Allocation volumes (as a proportion of MALF)
-GWAlloc    <-as.double(c(0.0,0.0))      #Define groundwater allocation as a fraction of mean annual recharge
+GWAlloc    <-as.double(c(1.0,0.0))      #Define groundwater allocation as a fraction of mean annual recharge
 #____________________________________________________________________________________________
 #USER DEFINED SETTINGS FOR ALL SCENARIOS
 TakeAll             <-0                 #Define whether to take ALL allocated water (1) or just that for irrigable area (0)
@@ -102,7 +102,7 @@ RunOne=function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,La
                                  EffIrriArea=EffIrriArea)
   MyREC1<-Run_WQandPeri(MyREC=MyREC1,LandManagement=LandManagement,IrrigableAreaTarget=IrrigableAreaTarget,
                         AllocQ=AllocQ,GWAlloc=GWAlloc,PropIrri=PropIrri,WQModel=WQModel)
-  MyREC1<-Run_HabitatFunctions(MyREC=MyREC1,MinQ=MinQ,GWAlloc=GWAlloc,method=QWModel)
+  MyREC1<-Run_HabitatFunctions(MyREC=MyREC1,pick=pick,MinQ=MinQ,method=QWModel)
   return(MyREC1)
 }
 
