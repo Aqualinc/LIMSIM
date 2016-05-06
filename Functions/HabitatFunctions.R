@@ -14,7 +14,7 @@
 ###################################################################################
 ###################################################################################
 
-Run_HabitatFunctions<-function(MyREC=NULL,MinQ=0,GWAlloc=0,method="Jowett"){
+Run_HabitatFunctions<-function(MyREC=NULL,pick=pick,MinQ=0,method="Jowett"){
 
   if (method=="Booker"){
     print("Calculating BOOKER QW relationships...")
@@ -23,7 +23,7 @@ Run_HabitatFunctions<-function(MyREC=NULL,MinQ=0,GWAlloc=0,method="Jowett"){
   }else{
     print("Calculating JOWETT QW relationships...")
     QW <<- lapply(pick, GetWidth, method="Jowett",Data=MyREC) 
-}
+  }
 #QW2 <<- lapply(pick, GetWidth, method="booker") # this gets the width flow relationships for all reaches.
 names(QW) <- pick   # names the list elements
 # the mean reduction in width for flows up to the mean (the largest value in QW
@@ -134,24 +134,36 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
 }
 
 
-
-###############################################################################                                                                            #
-#         Compute loss of width over the whole hydrograph (FDC)               #                                                                             #
-###############################################################################
+###################################################################
+#' Function to compute loss of width over the whole hydrograph (FDC)
+#'
+#' this function evaluates the reduction in width over the whole FDC for the natural and altered flows 
+#' @param ThisNZReach The REC reach number of the reach of interest
+#' @param FDC a dataframe of flow rates for different percentiles columns) for different reaches (rows)
+#' @param FlowWidth dataframe of flow vs width
+#' @param minFlow the minimum flow in cumecs. If this is NULL then it is calculated from the MinQ attribute in the REC table. Default is NULL
+#' @param prop the minimum flow in fraction of the "Qref". prop stands for proportion. Defaults to 0.8
+#' @param Qref the reference flow in cumecs which the "prop" and "allocate" are fractions of. If it is NULL, then it is set to the "MALF" attribute of the reach. Defaults to NULL
+#' @param allocate the allocation as a fraction of "Qref". If NULL then it is set to the "AllocQ" attribute of the reach. Defaults to 0.5
+#' @param Plot whether to plot the flow duration curve with lines showing the minimum and managed flows in normal and log space. Defaults to TRUE
+#' @param Data the REC attribute table
+#' @return The average width loss resulting from the allocations
+#' @keywords REC
+#' @export
+#' @examples
+#' IntegratedWidth()
 
 IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, minFlow=NULL, prop=0.8,
                             Qref=NULL, allocate=0.5, Plot = TRUE, Data = MyREC) {
-  # this function evaluates the reduction in width over the whole FDC for the natural and altered flows                             
-  # the function will asume that allocations are based on MALF unless Qref is given
-  # prop is the proportion of MALF for Qmin and allocate is the proportion of MALF to allocate (uless Data contains "TheTake"
+
 #browser()
   ThisRow <- which(Data$NZReach == ThisNZReach) # 
-  if(Data$TheTake[ThisRow] == 0|any(is.na(FlowWidth[[ThisRow]])==T)) {  # if there is no take skip entirely width loss is ZERO  -> NA
+  if(Data$TheTake[ThisRow] == 0 | any(is.na(FlowWidth[[ThisRow]]))) {  # if there is no take skip entirely width loss is ZERO  -> NA
     AveWidthLoss <- NA
   } else {
     
-    if (is.null(Qref)) Qref <- Data[ThisRow, "MALF"]  # the reference flow is the MALf from the hyd predictions data
-    if (is.null(minFlow)) minFlow <- Qref * Data$MinQ[ThisRow]   # minflow = flow at which there is TOTAL restriction
+    if (is.null(Qref)) Qref <- Data[ThisRow, "MALF"]                   # the reference flow is the MALf from the hyd predictions data
+    if (is.null(minFlow)) minFlow <- Qref * Data$MinQ[ThisRow]         # minflow = flow at which there is TOTAL restriction
     
     if(!is.null(Data$TheTake))   {
       allocation <-  Data$TheTake[ThisRow]
@@ -162,25 +174,24 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
     if (is.na(FDC[ThisRow, ])==T){
       AveWidthLoss <-NA
     }else{
-    # obtain FDC data for this REACH from Gauges
-    FDC.data <- FDC[ThisRow, ]   # THIS is the FDC
-    freqs <- 100*Perc # the percentiles the FDC is estimated for from the global value of Perc
-    
-    #AlteredFDC <- sapply(FDC.data, GetFlow, Min=minFlow, Alloc=allocation) # simulated FDC for the allocation scenario
-    #browser()
-    if (minFlow<FDC.data[1]){minFlow<-FDC.data[1]}
-    y=freqs; x=FDC.data
-
-    freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # interploate W vs Q data
-    if (length(freq.diff)!=2) {browser()}
-    AlteredFDC<-FDC.data-approx(x=c(100,freq.diff,0),y=c(allocation,allocation,0,0),xout=freqs)$y
-    
-    Qa <- FlowWidth[[ThisRow]]$Q   # the QW calculations corresponding to the NZReach
-    W <- FlowWidth[[ThisRow]]$W
-    NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=FDC.data)$y # interploate W vs Q data
-    AlteredWidths <- approx(x=c(0,Qa), y=c(0,W), xout=AlteredFDC)$y # interploate W vs Q data
-    
-    AveWidthLoss <-   mean((AlteredWidths - NaturalWidths)/NaturalWidths, na.rm=T) *100 # mean reduction in width (percentage of natural flow) 
+      # obtain FDC data for this REACH from Gauges
+      FDC.data <- FDC[ThisRow, ]   # THIS is the FDC
+      freqs <- 100*Perc # the percentiles the FDC is estimated for from the global value of Perc
+      
+      #browser()
+      if (minFlow<FDC.data[1]){minFlow<-FDC.data[1]}
+      y=freqs; x=FDC.data
+      
+      freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # interploate W vs Q data
+      if (length(freq.diff)!=2) {browser()}
+      AlteredFDC<-FDC.data-approx(x=c(100,freq.diff,0),y=c(allocation,allocation,0,0),xout=freqs)$y
+      
+      Qa <- FlowWidth[[ThisRow]]$Q   # the QW calculations corresponding to the NZReach
+      W <- FlowWidth[[ThisRow]]$W
+      NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=FDC.data)$y # interploate W vs Q data
+      AlteredWidths <- approx(x=c(0,Qa), y=c(0,W), xout=AlteredFDC)$y # interploate W vs Q data
+      
+      AveWidthLoss <-   mean((AlteredWidths - NaturalWidths)/NaturalWidths, na.rm=T) *100 # mean reduction in width (percentage of natural flow) 
     }
     
     if(Plot==TRUE)   {
