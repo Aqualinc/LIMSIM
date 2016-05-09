@@ -110,22 +110,22 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
   #Qbar <- this.seg$Flow_L_s/1000
   Qbar <- Data[ThisRow, "MeanFlow"]  # OR take mean flow from Doug's estimates
   if(is.na(Qbar)==F){
-  Q <- seq(Qbar*0.0001, Qbar, length.out=n.pairs)  # better not to have flow of zer0
-  if (method=="Booker") {
-    this.seg$LogCatchmentArea <- log10(this.seg$usArea/1000000)
-    this.seg$LogFlow <- log10(Qbar)    
-    d0<- predict(IntModelCl, newdata = this.seg)
-    d1 <- predict(SlopeModelCl, newdata = this.seg)
-    d2 <- predict(QuadModelCl, newdata = this.seg)
-    LogQ <- log10(Q)
-    W  <-  10^(d0 +  LogQ*d1  +  d2*(LogQ^2))
-    QW <- data.frame(cbind(Q, W))
-  } else {
-    Wbar <- 7.76*(Qbar^0.488)          #  mean width and meam flow from Downstream Hydraulic Geometry  Jowett 1998
-    b <-   Wbar/(Qbar^0.176)           # Compute b far at-a-station hydraulic geometry (Width) Jowett 1998
-    W <- b*(Q^0.176)
-    QW <- data.frame(cbind(Q, W))
-  }
+    Q <- seq(Qbar*0.0001, Qbar, length.out=n.pairs)  # better not to have flow of zer0
+    if (method=="Booker") {
+      this.seg$LogCatchmentArea <- log10(this.seg$usArea/1000000)
+      this.seg$LogFlow <- log10(Qbar)    
+      d0<- predict(IntModelCl, newdata = this.seg)
+      d1 <- predict(SlopeModelCl, newdata = this.seg)
+      d2 <- predict(QuadModelCl, newdata = this.seg)
+      LogQ <- log10(Q)
+      W  <-  10^(d0 +  LogQ*d1  +  d2*(LogQ^2))
+      QW <- data.frame(cbind(Q, W))
+    } else {
+      Wbar <- 7.76*(Qbar^0.488)           #  mean width and meam flow from Downstream Hydraulic Geometry  Jowett 1998
+      b    <- Wbar/(Qbar^0.176)           # Compute b far at-a-station hydraulic geometry (Width) Jowett 1998
+      W    <- b*(Q^0.176)
+      QW   <- data.frame(cbind(Q, W))
+    }
   }else{
     QW<-NA
   }
@@ -155,40 +155,44 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
 
 IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, minFlow=NULL, prop=0.8,
                             Qref=NULL, allocate=0.5, Plot = TRUE, Data = MyREC) {
-
-#browser()
-  ThisRow <- which(Data$NZReach == ThisNZReach) # 
-  if(Data$TheTake[ThisRow] == 0 | any(is.na(FlowWidth[[ThisRow]]))) {  # if there is no take skip entirely width loss is ZERO  -> NA
+  
+  #browser()
+  ThisRow <- which(Data$NZReach == ThisNZReach)                        # Get the row number of the REC attribute table for the reach of interest 
+  if(Data$TheTake[ThisRow] == 0 | any(is.na(FlowWidth[[ThisRow]]))) {  # if there is no take or there is an NA in the FlowWidth table, skip entirely width loss is ZERO  -> NA
     AveWidthLoss <- NA
   } else {
     
-    if (is.null(Qref)) Qref <- Data[ThisRow, "MALF"]                   # the reference flow is the MALf from the hyd predictions data
-    if (is.null(minFlow)) minFlow <- Qref * Data$MinQ[ThisRow]         # minflow = flow at which there is TOTAL restriction
+    #Sort out the values for the minimum flow and allocation flow in cumeces
+    if (is.null(Qref)) Qref <- Data$MALF[ThisRow]                      # If the "Qref" parameter is NULL, set it to the MALf from the REC attributes table
+    if (is.null(minFlow)) minFlow <- Qref * Data$MinQ[ThisRow]         # If the "minflow" parameter is NULL, set it based on the REC attribute tables "MinQ" and "MALF"
     
-    if(!is.null(Data$TheTake))   {
-      allocation <-  Data$TheTake[ThisRow]
+    if(!is.null(Data$TheTake))   {                                     # Check to see if take has been established
+      allocation <-  Data$TheTake[ThisRow]                             # If it has, tehn use it to set the allocation
     } else {
-      allocation <- Data$AllocQ*Qref   #  the allocation will be Qref*allocate. The DEFAULT for Qref= MALF, this allows for rules of thumb to be used.
+      allocation <- Data$AllocQ[ThisRow] * Qref                        # if not then the allocation will be Qref * allocate. The DEFAULT for Qref= MALF, this allows for rules of thumb to be used.
     }
     
-    if (is.na(FDC[ThisRow, ])==T){
+    if (is.na(FDC[ThisRow, ])){
       AveWidthLoss <-NA
     }else{
       # obtain FDC data for this REACH from Gauges
-      FDC.data <- FDC[ThisRow, ]   # THIS is the FDC
-      freqs <- 100*Perc # the percentiles the FDC is estimated for from the global value of Perc
+      FDC.data <- FDC[ThisRow, ]                                      # THIS is the FDC
+      freqs    <- 100*Perc                                            # the percentiles the FDC is estimated for from the global value of Perc
       
       #browser()
-      if (minFlow<FDC.data[1]){minFlow<-FDC.data[1]}
-      y=freqs; x=FDC.data
+      if (minFlow < FDC.data[1]){minFlow <- FDC.data[1]}              # Make sure the minimum flow is at least as large as the smallest value in the flow duration curve
+      #y=freqs; x=FDC.data
       
-      freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # interploate W vs Q data
-      if (length(freq.diff)!=2) {browser()}
-      AlteredFDC<-FDC.data-approx(x=c(100,freq.diff,0),y=c(allocation,allocation,0,0),xout=freqs)$y
+      freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
+      #if (length(freq.diff)!=2) {browser()}
+      GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$TrueBFI[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow]
+
+      AlteredFDC<-FDC.data - approx(x=c(100,freq.diff,0),y=c(allocation+GWTakeFDCShift,allocation+GWTakeFDCShift,GWTakeFDCShift,GWTakeFDCShift),xout=freqs)$y
+      #browser()
+      Qa <- FlowWidth[[ThisRow]]$Q                                    # the QW calculations corresponding to the reach of interest
+      W  <- FlowWidth[[ThisRow]]$W
       
-      Qa <- FlowWidth[[ThisRow]]$Q   # the QW calculations corresponding to the NZReach
-      W <- FlowWidth[[ThisRow]]$W
-      NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=FDC.data)$y # interploate W vs Q data
+      NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=FDC.data)$y   # interploate W vs Q data
       AlteredWidths <- approx(x=c(0,Qa), y=c(0,W), xout=AlteredFDC)$y # interploate W vs Q data
       
       AveWidthLoss <-   mean((AlteredWidths - NaturalWidths)/NaturalWidths, na.rm=T) *100 # mean reduction in width (percentage of natural flow) 
@@ -212,18 +216,18 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
 }# end
 
 NaturalWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, Data = MyREC) {
- 
+  
   ThisRow <- which(Data$NZReach == ThisNZReach) # 
   if (is.na(FDC[ThisRow, ])==T){
-   NaturalWidths<-NA 
+    NaturalWidths<-NA 
     
   }else{
-      Qa <- FlowWidth[[ThisRow]]$Q   # the QW calculations corresponding to the NZReach
-      W <- FlowWidth[[ThisRow]]$W
-      NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=Data$MeanFlow[ThisRow])$y # interploate W vs Q data
+    Qa <- FlowWidth[[ThisRow]]$Q   # the QW calculations corresponding to the NZReach
+    W <- FlowWidth[[ThisRow]]$W
+    NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=Data$MeanFlow[ThisRow])$y # interploate W vs Q data
   }
-    return(NaturalWidths)
-    }
+  return(NaturalWidths)
+}
 ###############################################################################                                                                            #
 #         Compute habitat vs flow for each NZreach                            #                                                                             #
 ###############################################################################
