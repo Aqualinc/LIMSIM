@@ -34,7 +34,8 @@
 #' Run_FlowandAbstraction()
 Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,TakeAll=0,SysCap=0.58,EffIrriArea=0.8){
   
-  load(paste(dir$fun,"DeltaInd_v2.RData",sep="/"))
+  load(file.path(dir$fun,"DeltaInd_v2.RData"))
+  if(!exists("Doug.rbind.list", mode="function")) source(file.path(dir$fun,"GeneralFunctions.R"))
   
   #Add the water take rules as attributes
   if (length(AllocQ==1)){  
@@ -117,8 +118,8 @@ GenFDC <- function(ThisNZReach = 13524724, P = Perc, Data = MyREC) {
     }
     Q[Q<0] <- 0                                                     # no values should be negative
     Q <- Q * Data[ThisRow, "MeanFlow"]                              # multiply by estimated mean flow
-    #about here I need to subtract from Q the GWAlloc * baseflowfrom Aquifers
-    Q  <- Q - Data[ThisRow, "GWAlloc"] * Data[ThisRow, "AqBaseFlow"] * Data[ThisRow, "BaseFlow"]
+    #about here I need to subtract from Q the GWAlloc * baseflowfrom Aquifers or do I?
+    #Q  <- Q - Data[ThisRow, "GWAlloc"] * Data[ThisRow, "AqBaseFlow"] * Data[ThisRow, "BaseFlow"]
   } else {
     Q<-P*NA
   }

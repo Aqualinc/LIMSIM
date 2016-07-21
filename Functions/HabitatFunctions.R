@@ -101,27 +101,45 @@ return(MyREC)
 #   Compute QW curve for an NZReach  Using Booker 2009                        #
 #   Compute QW curve for an NZReach  Using Jowett 1998                        #
 ###############################################################################
-GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data=MyREC,IntModelCl=NA,SlopeModelCl=NA,QuadModelCl=NA) {   # Pass data in one line (=NZReach)
-  # this function calculates Q and W in n.pairs from 0 to Qbar(mean flow)
-  #browser()
-  ThisRow <- which(Data$NZReach == ThisNZReach) # get the parameters from the FDC dataset is this faster???
-  this.seg <- Data[ThisRow, ]
+###################################################################
+#' Function to compute the flow to width relationship for a reach
+#'
+#' @description this function prepares a two column dataframe of flow (Q) and width (W) for flows
+#'  from 0.0001 of the mean flow through to the mean flow in a  specified number of steps using one of two methods
+#' @references Booker, D. j., 2010. Predicting wetted width in any river at any discharge. Earth Surf. Process. Landforms 35, 828–841. doi:10.1002/esp.1981
+#' @references Jowett, I.G., 1998. Hydraulic geometry of New Zealand rivers and its use as a preliminary method of habitat assessment. Regul. Rivers: Res. Mgmt. 14, 451–466. doi:10.1002/(SICI)1099-1646(1998090)14:5<451::AID-RRR512>3.0.CO;2-1
+#' @param ThisNZReach The REC reach number of the reach of interest
+#' @param method either "Booker" based on Booker 2009 (default) or "Jowett" based on Jowett 1998
+#' @param n.pairs The number of flow divisions to provide widths for
+#' @param Data the REC attribute table
+#' @param IntModelCl a model to calculate intercept of the flow to width relationship, from Booker 2010, with R model in the BookerModel.RData found in the "Functions" sub directory
+#' @param SlopeModelCl a model to calculate the slope of the flow to width relationship, from Booker 2010, with R model in the BookerModel.RData found in the "Functions" sub directory
+#' @param QuadModelCl a model to calculate quadratics coefficient of the flow to width relationship, from Booker 2010, with R model in the BookerModel.RData found in the "Functions" sub directory
+#' @return A dataframe of flow (Q) and width (W)
+#' @keywords REC
+#' @export
+#' @examples
+#' GetWidth()
+
+GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data=MyREC,IntModelCl=NA,SlopeModelCl=NA,QuadModelCl=NA) {   
+  ThisRow <- which(Data$NZReach == ThisNZReach) # find which row of the REC data has the reach of interest
+  this.seg <- Data[ThisRow, ]                   # get all the data for the reach of interest
   #browser()
   #Qbar <- this.seg$Flow_L_s/1000
-  Qbar <- Data[ThisRow, "MeanFlow"]  # OR take mean flow from Doug's estimates
-  if(is.na(Qbar)==F){
-    Q <- seq(Qbar*0.0001, Qbar, length.out=n.pairs)  # better not to have flow of zer0
-    if (method=="Booker") {
-      this.seg$LogCatchmentArea <- log10(this.seg$usArea/1000000)
-      this.seg$LogFlow <- log10(Qbar)    
-      d0<- predict(IntModelCl, newdata = this.seg)
+  Qbar <- Data[ThisRow, "MeanFlow"]             # get the mean flow for the reach of interest
+  if(is.na(Qbar)==F){                           # Only do the calculation if there is a value for the mean flow 
+    Q <- seq(Qbar*0.0001, Qbar, length.out=n.pairs)  # prepare a vector of flows from 0.0001 through to the mean flow in n.pairs steps
+    if (method=="Booker") {                     # Check if the "Booker" method is to be used
+      this.seg$LogCatchmentArea <- log10(this.seg$usArea/1000000)    #Find the log10 of the upstream area in metres squared
+      this.seg$LogFlow <- log10(Qbar)                                #Find the log10 of the mean flow
+      d0<- predict(IntModelCl, newdata = this.seg)                   #Find three parameters, d0,d1,d2 using three models  
       d1 <- predict(SlopeModelCl, newdata = this.seg)
       d2 <- predict(QuadModelCl, newdata = this.seg)
       LogQ <- log10(Q)
-      W  <-  10^(d0 +  LogQ*d1  +  d2*(LogQ^2))
+      W  <-  10^(d0 +  LogQ*d1  +  d2*(LogQ^2))                      #Calculate the width 
       QW <- data.frame(cbind(Q, W))
-    } else {
-      Wbar <- 7.76*(Qbar^0.488)           #  mean width and meam flow from Downstream Hydraulic Geometry  Jowett 1998
+    } else {                              # The other option ids the "Jowett" method
+      Wbar <- 7.76*(Qbar^0.488)           #  mean width and mean flow from Downstream Hydraulic Geometry  Jowett 1998
       b    <- Wbar/(Qbar^0.176)           # Compute b far at-a-station hydraulic geometry (Width) Jowett 1998
       W    <- b*(Q^0.176)
       QW   <- data.frame(cbind(Q, W))
@@ -139,12 +157,10 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
 #'
 #' this function evaluates the reduction in width over the whole FDC for the natural and altered flows 
 #' @param ThisNZReach The REC reach number of the reach of interest
-#' @param FDC a dataframe of flow rates for different percentiles columns) for different reaches (rows)
+#' @param FDC a dataframe of flow rates for different percentiles (columns) for different reaches (rows)
 #' @param FlowWidth dataframe of flow vs width
 #' @param minFlow the minimum flow in cumecs. If this is NULL then it is calculated from the MinQ attribute in the REC table. Default is NULL
-#' @param prop the minimum flow in fraction of the "Qref". prop stands for proportion. Defaults to 0.8
 #' @param Qref the reference flow in cumecs which the "prop" and "allocate" are fractions of. If it is NULL, then it is set to the "MALF" attribute of the reach. Defaults to NULL
-#' @param allocate the allocation as a fraction of "Qref". If NULL then it is set to the "AllocQ" attribute of the reach. Defaults to 0.5
 #' @param Plot whether to plot the flow duration curve with lines showing the minimum and managed flows in normal and log space. Defaults to TRUE
 #' @param Data the REC attribute table
 #' @return The average width loss resulting from the allocations
@@ -153,8 +169,7 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
 #' @examples
 #' IntegratedWidth()
 
-IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, minFlow=NULL, prop=0.8,
-                            Qref=NULL, allocate=0.5, Plot = TRUE, Data = MyREC) {
+IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, minFlow=NULL, Qref=NULL, Plot = TRUE, Data = MyREC) {
   
   #browser()
   ThisRow <- which(Data$NZReach == ThisNZReach)                        # Get the row number of the REC attribute table for the reach of interest 
@@ -167,7 +182,7 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
     if (is.null(minFlow)) minFlow <- Qref * Data$MinQ[ThisRow]         # If the "minflow" parameter is NULL, set it based on the REC attribute tables "MinQ" and "MALF"
     
     if(!is.null(Data$TheTake))   {                                     # Check to see if take has been established
-      allocation <-  Data$TheTake[ThisRow]                             # If it has, tehn use it to set the allocation
+      allocation <-  Data$TheTake[ThisRow]                             # If it has, then use it to set the allocation
     } else {
       allocation <- Data$AllocQ[ThisRow] * Qref                        # if not then the allocation will be Qref * allocate. The DEFAULT for Qref= MALF, this allows for rules of thumb to be used.
     }
@@ -175,9 +190,16 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
     if (is.na(FDC[ThisRow, ])){
       AveWidthLoss <-NA
     }else{
-      # obtain FDC data for this REACH from Gauges
+      # obtain FDC data for this REACH 
       FDC.data <- FDC[ThisRow, ]                                      # THIS is the FDC
       freqs    <- 100*Perc                                            # the percentiles the FDC is estimated for from the global value of Perc
+      
+      #Adjust the flow duration curve for any groundwater allocation
+      GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
+      #GWTakeFDCShift <- 0 
+      FDC.data <- FDC.data - GWTakeFDCShift
+      #Set any -ves to 0
+      FDC.data[FDC.data <0] <- 0
       
       #browser()
       if (minFlow < FDC.data[1]){minFlow <- FDC.data[1]}              # Make sure the minimum flow is at least as large as the smallest value in the flow duration curve
@@ -185,9 +207,23 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       
       freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
       #if (length(freq.diff)!=2) {browser()}
-      GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$TrueBFI[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow]
-
-      AlteredFDC<-FDC.data - approx(x=c(100,freq.diff,0),y=c(allocation+GWTakeFDCShift,allocation+GWTakeFDCShift,GWTakeFDCShift,GWTakeFDCShift),xout=freqs)$y
+      
+      
+      #AlteredFDC<-FDC.data - approx(x=c(100,freq.diff,0),y=c(allocation+GWTakeFDCShift,allocation+GWTakeFDCShift,GWTakeFDCShift,GWTakeFDCShift),xout=freqs)$y
+      
+      
+      managed.freqs <- rev(subset(freqs, freqs < freq.diff[1] & freqs > freq.diff[2]))  #These are the percentiles that disappear, in reverse order
+      managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles that disappear, in reverse order
+      
+      #The new flow duration curve has flows reduced by the allocation flow from percentiles 100 to the percentile of the allocation flow + minimum flow (i.e. freq.diff[1])
+      #The new flow duration curve is unchanged below the minimum flow, i.e. from the percentile of the miniumum flow (freq.diff[2]) down to 0
+      #Between the upper and lower managed flow percentiles, the flows all go to the minimum flow.
+      #Note that in a previous version, the flow reduction in the managed flow section was a linear interpoaltion between allocation and 0. This results
+      #in a strange flow duration curve when the increase in flows between percentiles is less than the interpolated change. You can end up with a hollow in the flow duration curve.
+      AlteredFDC<-FDC.data - approx(x=c(100,freq.diff[1],managed.freqs,freq.diff[2],0),y=c(allocation,allocation,FDC.data[managed.freq.indices]-minFlow,0,0),xout=freqs)$y
+     
+     
+      #Now, what about Groundwater? Need to adjust for that first. 
       #browser()
       Qa <- FlowWidth[[ThisRow]]$Q                                    # the QW calculations corresponding to the reach of interest
       W  <- FlowWidth[[ThisRow]]$W
@@ -197,7 +233,7 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       
       AveWidthLoss <-   mean((AlteredWidths - NaturalWidths)/NaturalWidths, na.rm=T) *100 # mean reduction in width (percentage of natural flow) 
     }
-    
+    #browser()
     if(Plot==TRUE)   {
       x11(); par(mfrow=c(2,1), bg="grey90")
       freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # interploate W vs Q data
@@ -210,8 +246,9 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       plot(freqs, NaturalWidths, log="y", col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="Width")
       points(freqs, AlteredWidths,col="red", lwd=2, type="l")
     } #end plot
+  #browser()
   }  
-  
+  #browser()
   return(AveWidthLoss)   #returns the loss of width
 }# end
 
