@@ -178,7 +178,7 @@ TakeRate <- function(ThisNZReach = 13524724, RegAllocation=0.5, Data = 0, SysCap
 #' @export
 #' @examples
 #' freq.restrict()
-freq.restrict <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, prop=0.8, Qref=NULL, RegAllocation=0.5, Plot = TRUE, Data = 0,Data1=0) {
+freq.restrict <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, prop=0.8, Qref=NULL, RegAllocation=0.5, Plot = TRUE, Data = MyREC,Data1=MyREC) {
   #browser()
   ThisRow <- which(Data$NZReach == ThisNZReach)                          # get the parameters from the FDC dataset is this faster???
   ThisRow_ALL <- which(Data1$NZReach == ThisNZReach)
@@ -205,11 +205,41 @@ freq.restrict <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, pr
     manFlow          <- minFlow+allocation                                        #  minflow+allocation = "management flow"  the flow at which restrictions begin
     FDC.data         <- FDC[ThisRow_ALL, ]                                        # THIS is the FDC
     freqs            <- 100*Perc                                                    # the percentiles the FDC is estimated for from the global value of Perc              
-    freq.diff        <- approx(y=freqs, x=FDC.data, xout=c(manFlow, minFlow))$y   # interploate W vs Q data
+    
+    #Adjust the flow duration curve for any groundwater allocation
+    GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
+    #GWTakeFDCShift <- 0 
+    FDCGWTakeAffected.data <- FDC.data - GWTakeFDCShift
+    #Set any -ves to 0
+    FDCGWTakeAffected.data[FDCGWTakeAffected.data <0] <- 0
+    
+    #browser()
+    if (minFlow < FDCGWTakeAffected.data[1]){minFlow <- FDCGWTakeAffected.data[1]}              # Make sure the minimum flow is at least as large as the smallest value in the flow duration curve
+    
+    freq.diff <-  approx(y=freqs, x=FDCGWTakeAffected.data, xout=c(minFlow+allocation, minFlow))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
     freq.man         <- freq.diff[1]
     freq.min         <- freq.diff[2]                                              # minflow= flow at which there is TOTAL restriction   
-    FDC_altered      <- FDC.data
-    FDC.take         <- approx(x=c(100,freq.diff,0),y=c(allocation,allocation,0,0),xout=freqs)
+    
+    #if (length(freq.diff)!=2) {browser()}
+    
+    
+    #AlteredFDC<-FDCGWTakeAffected.data - approx(x=c(100,freq.diff,0),y=c(allocation+GWTakeFDCShift,allocation+GWTakeFDCShift,GWTakeFDCShift,GWTakeFDCShift),xout=freqs)$y
+    
+    #browser()
+    managed.freqs <- rev(subset(freqs, freqs < freq.diff[1] & freqs > freq.diff[2]))  #These are the percentiles that disappear, in reverse order
+    managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles that disappear, in reverse order             
+    
+    #The new flow duration curve has flows reduced by the allocation flow from percentiles 100 to the percentile of the allocation flow + minimum flow (i.e. freq.diff[1])
+    #The new flow duration curve is unchanged below the minimum flow, i.e. from the percentile of the miniumum flow (freq.diff[2]) down to 0
+    #Between the upper and lower managed flow percentiles, the flows all go to the minimum flow.
+    #Note that in a previous version, the flow reduction in the managed flow section was a linear interpoaltion between allocation and 0. This results
+    #in a strange flow duration curve when the increase in flows between percentiles is less than the interpolated change. You can end up with a hollow in the flow duration curve.
+    if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
+    FDC.take<-approx(x=c(100,freq.diff[1],managed.freqs,freq.diff[2],0),y=c(allocation,allocation,managed.flows,0,0),xout=freqs)
+    
+    #browser()
+    
+    #FDC.take         <- approx(x=c(100,freq.diff,0),y=c(allocation,allocation,0,0),xout=freqs)
     freq.reliability <- mean(FDC.take$y)/allocation*100  #NOTE THIS ONLY WORKS IF FREQS iS EVENLY SAMPLED
     #if(is.na(freq.min)) freq.min <- 100  # the minFlow can be OFF the end of the FDC curve! (especially when MALF is annual but FDC is for summer.
     #if(is.na(freq.man)) freq.man <- 100  # the FREQ manFlow can be NA in MALF = 0                                        
@@ -217,19 +247,22 @@ freq.restrict <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, pr
     
   if(Plot==TRUE)   {
     par(mfrow=c(2,1), bg="grey90")
-    plot(freqs, log10(FDC.data), col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="log10 Flow")
+    #plot(freqs, log10(FDC.data), col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="log10 Flow")
+    plot(freqs, log10(FDCGWTakeAffected.data), col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="log10 Flow")
     abline(h=log10(minFlow), col = "green")
     abline(v=freq.min, col = "green", lty=2)
     abline(h=log10(manFlow), col = "red")
     abline(v=freq.man, col = "red", lty=2)
-    legend("top", cex=0.8,
+    legend("topleft", cex=0.8,
            legend=c(paste("Minimum Flow",round(minFlow,2)),
                     paste("Freq Min Flow", round(freq.min, 2)),
                     paste("Management Flow", round(manFlow,2)),
                     paste("Freq Man Flow",round(freq.man,2))),
            col = c("green","green", "red", "red"),   text.col = "black", lty = c(1, 2,1,2), pch = c(-1, -1),   lwd = c(1,1,1,1),
            merge = TRUE, bg = 'white', inset = .05)
-    plot(freqs, FDC.data, col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="Flow",
+    #plot(freqs, FDC.data, col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="Flow",
+    #     xlim=c(freq.man*0.9, 100), ylim=c(0, manFlow*1.1))
+    plot(freqs, FDCGWTakeAffected.data, col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="Flow",
          xlim=c(freq.man*0.9, 100), ylim=c(0, manFlow*1.1))
     abline(h=minFlow, col = "green")
     abline(v=freq.min, col = "green", lty=2)
