@@ -6,6 +6,7 @@
 ###################################################################################
 ###################################################################################
 # Functions indcluded in this script:
+#       - HabitatFunctions runs all the other functions for the reaches of interest within an REC set.
 #       - IntegratedWidth Calculates the reduction in width over the whole FDC
 #       - habitat         Calculates the available habitat for a prescribed species
 #       - delta.hab       Calcualtes the change in habitat
@@ -14,14 +15,34 @@
 ###################################################################################
 ###################################################################################
 
+#need to make sure that the functions within the Flow&AbstractionFunctions.R are available.
+if(!exists("Run_FlowandAbstraction", mode="function")) source(file.path(dir$fun,"FlowAbstractionFunctions.R"))
+
+
+###################################################################
+#' Function to run all the habitat functions
+#'
+#' @description this function runs all the LimSim habitat functions
+#' @references Booker, D. j., 2010. Predicting wetted width in any river at any discharge. Earth Surf. Process. Landforms 35, 828–841. doi:10.1002/esp.1981
+#' @references Jowett, I.G., 1998. Hydraulic geometry of New Zealand rivers and its use as a preliminary method of habitat assessment. Regul. Rivers: Res. Mgmt. 14, 451–466. doi:10.1002/(SICI)1099-1646(1998090)14:5<451::AID-RRR512>3.0.CO;2-1
+#' @param pick The REC reach numbers of interest
+#' @param method either "Booker" based on Booker 2009 (default) or "Jowett" based on Jowett 1998
+#' @param MyREC the REC attribute table
+#' @param MinQ the minimum flow rule as a fraction of the seven day MALF
+#' @return A dataframe of flow (Q) and width (W)
+#' @keywords REC
+#' @export
+#' @examples
+#' Run_HabitatFunctions()
+
 Run_HabitatFunctions<-function(MyREC=NULL,pick=pick,MinQ=0,method="Jowett"){
 
   if (method=="Booker"){
-    print("Calculating BOOKER QW relationships...")
+    print("Calculating Booker QW relationships...")
     load(paste(dir$fun,"BookerModel.RData",sep="/"))  # this loads Doug's fitted models to estimate width using catchment area and climate category 
     QW <<- lapply(pick, GetWidth, method="Booker",Data=MyREC,IntModelCl=IntModelCl,SlopeModelCl=SlopeModelCl,QuadModelCl=SlopeModelCl) # this gets the width flow relationships for all reaches
   }else{
-    print("Calculating JOWETT QW relationships...")
+    print("Calculating Jowett QW relationships...")
     QW <<- lapply(pick, GetWidth, method="Jowett",Data=MyREC) 
   }
 #QW2 <<- lapply(pick, GetWidth, method="booker") # this gets the width flow relationships for all reaches.
@@ -29,7 +50,7 @@ names(QW) <- pick   # names the list elements
 # the mean reduction in width for flows up to the mean (the largest value in QW
 print("Calculating reduction in width...")
 #browser()
-MyREC$RedWidth<- sapply(pick, IntegratedWidth, FDC = MyFDC, FlowWidth = QW, minFlow=NULL, prop=NULL,
+MyREC$RedWidth<- sapply(pick, IntegratedWidth, FDC = MyFDC, FlowWidth = QW, minFlow=NULL,
                           Qref=NULL, Plot = F, Data = MyREC)
 #RedWidth(is.na(RedWidth))<-0
 #MyREC$RedWidth[which(is.na(MyREC$RedWidth)==T)]<-0
@@ -97,10 +118,6 @@ return(MyREC)
 }
 
 
-###############################################################################
-#   Compute QW curve for an NZReach  Using Booker 2009                        #
-#   Compute QW curve for an NZReach  Using Jowett 1998                        #
-###############################################################################
 ###################################################################
 #' Function to compute the flow to width relationship for a reach
 #'
@@ -173,7 +190,7 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
   
   #browser()
   ThisRow <- which(Data$NZReach == ThisNZReach)                        # Get the row number of the REC attribute table for the reach of interest 
-  if(Data$TheTake[ThisRow] == 0 | any(is.na(FlowWidth[[ThisRow]]))) {  # if there is no take or there is an NA in the FlowWidth table, skip entirely width loss is ZERO  -> NA
+  if(Data$TheTake[ThisRow] == 0 | anyNA(FlowWidth[[ThisRow]])) {  # if there is no take or there is an NA in the FlowWidth table, skip entirely width loss is ZERO  -> NA
     AveWidthLoss <- NA
   } else {
     
@@ -187,7 +204,7 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       allocation <- Data$AllocQ[ThisRow] * Qref                        # if not then the allocation will be Qref * allocate. The DEFAULT for Qref= MALF, this allows for rules of thumb to be used.
     }
     
-    if (is.na(FDC[ThisRow, ])){
+    if (anyNA(FDC[ThisRow, ])){
       AveWidthLoss <-NA
     }else{
       # obtain FDC data for this REACH 
@@ -197,37 +214,35 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       #Adjust the flow duration curve for any groundwater allocation
       GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
       #GWTakeFDCShift <- 0 
-      FDC.data <- FDC.data - GWTakeFDCShift
+      FDCGWTakeAffected.data <- FDC.data - GWTakeFDCShift
       #Set any -ves to 0
-      FDC.data[FDC.data <0] <- 0
+      FDCGWTakeAffected.data[FDCGWTakeAffected.data <0] <- 0
       
       #browser()
-      if (minFlow < FDC.data[1]){minFlow <- FDC.data[1]}              # Make sure the minimum flow is at least as large as the smallest value in the flow duration curve
-      #y=freqs; x=FDC.data
+      if (minFlow < FDCGWTakeAffected.data[1]){minFlow <- FDCGWTakeAffected.data[1]}              # Make sure the minimum flow is at least as large as the smallest value in the flow duration curve
       
-      freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
+      freq.diff <-  approx(y=freqs, x=FDCGWTakeAffected.data, xout=c(minFlow+allocation, minFlow))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
       #if (length(freq.diff)!=2) {browser()}
       
       
-      #AlteredFDC<-FDC.data - approx(x=c(100,freq.diff,0),y=c(allocation+GWTakeFDCShift,allocation+GWTakeFDCShift,GWTakeFDCShift,GWTakeFDCShift),xout=freqs)$y
+      #AlteredFDC<-FDCGWTakeAffected.data - approx(x=c(100,freq.diff,0),y=c(allocation+GWTakeFDCShift,allocation+GWTakeFDCShift,GWTakeFDCShift,GWTakeFDCShift),xout=freqs)$y
       
-      
+      #browser()
       managed.freqs <- rev(subset(freqs, freqs < freq.diff[1] & freqs > freq.diff[2]))  #These are the percentiles that disappear, in reverse order
-      managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles that disappear, in reverse order
+      managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles that disappear, in reverse order             
       
       #The new flow duration curve has flows reduced by the allocation flow from percentiles 100 to the percentile of the allocation flow + minimum flow (i.e. freq.diff[1])
       #The new flow duration curve is unchanged below the minimum flow, i.e. from the percentile of the miniumum flow (freq.diff[2]) down to 0
       #Between the upper and lower managed flow percentiles, the flows all go to the minimum flow.
       #Note that in a previous version, the flow reduction in the managed flow section was a linear interpoaltion between allocation and 0. This results
       #in a strange flow duration curve when the increase in flows between percentiles is less than the interpolated change. You can end up with a hollow in the flow duration curve.
-      AlteredFDC<-FDC.data - approx(x=c(100,freq.diff[1],managed.freqs,freq.diff[2],0),y=c(allocation,allocation,FDC.data[managed.freq.indices]-minFlow,0,0),xout=freqs)$y
+      if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
+      AlteredFDC<-FDCGWTakeAffected.data - approx(x=c(100,freq.diff[1],managed.freqs,freq.diff[2],0),y=c(allocation,allocation,managed.flows,0,0),xout=freqs)$y
      
-     
-      #Now, what about Groundwater? Need to adjust for that first. 
       #browser()
       Qa <- FlowWidth[[ThisRow]]$Q                                    # the QW calculations corresponding to the reach of interest
       W  <- FlowWidth[[ThisRow]]$W
-      
+        
       NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=FDC.data)$y   # interploate W vs Q data
       AlteredWidths <- approx(x=c(0,Qa), y=c(0,W), xout=AlteredFDC)$y # interploate W vs Q data
       
@@ -255,7 +270,7 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
 NaturalWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, Data = MyREC) {
   
   ThisRow <- which(Data$NZReach == ThisNZReach) # 
-  if (is.na(FDC[ThisRow, ])==T){
+  if (anyNA(FDC[ThisRow, ])==T){
     NaturalWidths<-NA 
     
   }else{
@@ -271,22 +286,22 @@ NaturalWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, Da
 
 habitat <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC, sp="Brown trout adult",FDC = MyFDC) {  #
   #browser()
-  if(any(sp%in%"Brown trout adult")) hab.par <- c(1.17, 4.35)   #hab.par = parameters for generalised habitat models C and K
-  if(any(sp%in%"Redfin"))            hab.par <- c(0.26, 7.39)   # redfin
-  if(any(sp%in%"ComBully"))           hab.par <- c(0.39, 6.51)   # common bully
-  if(any(sp%in%"Fry"))           hab.par <- c(0.86, 10.21)   # brown trout fry
-  if(any(sp%in%"Spawn"))           hab.par <- c(1.24, 9.89)   # brown trout spawning
-  if(any(sp%in%"Deli"))           hab.par <- c(0.33, 1.92)   # deleatidium
-  if(any(sp%in%"LongEel"))           hab.par <- c(0.07, 2.07)   # longfin eel
-  if(any(sp%in%"Torrent"))           hab.par <- c(0.88, 4.05)   # torrent fish
-  if(any(sp%in%"ShortEel"))           hab.par <- c(0.13, 2.32)   # shortfin eel
-  if(any(sp%in%"Bluegill Bully"))           hab.par <- c(1.01, 6.13)   # Bluegill bully
-  if(any(sp%in%"Inanga"))           hab.par <- c(0.19, 19.74)   # INanaga
-  if(any(sp%in%"Kokopu"))           hab.par <- c(0.03, 2.29)   # Kokopu
-  if(any(sp%in%"Upland Bully"))    hab.par <- c(0.19, 13.13)   # upland bully
+  if(any(sp%in%"Brown trout adult")) hab.par <- c(1.17, 4.35)    # hab.par = parameters for generalised habitat models C and K
+  if(any(sp%in%"Redfin"))            hab.par <- c(0.26, 7.39)    # redfin
+  if(any(sp%in%"ComBully"))          hab.par <- c(0.39, 6.51)    # common bully
+  if(any(sp%in%"Fry"))               hab.par <- c(0.86, 10.21)   # brown trout fry
+  if(any(sp%in%"Spawn"))             hab.par <- c(1.24, 9.89)    # brown trout spawning
+  if(any(sp%in%"Deli"))              hab.par <- c(0.33, 1.92)    # deleatidium
+  if(any(sp%in%"LongEel"))           hab.par <- c(0.07, 2.07)    # longfin eel
+  if(any(sp%in%"Torrent"))           hab.par <- c(0.88, 4.05)    # torrent fish
+  if(any(sp%in%"ShortEel"))          hab.par <- c(0.13, 2.32)    # shortfin eel
+  if(any(sp%in%"Bluegill Bully"))    hab.par <- c(1.01, 6.13)    # Bluegill bully
+  if(any(sp%in%"Inanga"))            hab.par <- c(0.19, 19.74)   # INanaga
+  if(any(sp%in%"Kokopu"))            hab.par <- c(0.03, 2.29)    # Kokopu
+  if(any(sp%in%"Upland Bully"))      hab.par <- c(0.19, 13.13)   # upland bully
   
   ThisRow <- which(Data$NZReach == ThisNZReach) #
-  if (is.na(FDC[ThisRow, ])==T){
+  if (anyNA(FDC[ThisRow, ])==T){
     Q<-NA; HV<-NA; WUA<-NA
   }else{
   Q <- FlowWidth[[ThisRow]]$Q
@@ -301,15 +316,52 @@ habitat <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC, sp="Br
   return(habMat)
 }
 
-###############################################################################
-#   calculate delta habitat with delta Q for an NZreach                       #
-###############################################################################
-# WH can be HV or WUA
+###################################################################
+#' Function to calculate the change in habitat for a change in flow for a reach
+#'
+#' this function evaluates the percentage change in habitat based on the change in flow 
+#' @param ThisNZReach The REC reach number of the reach of interest
+#' @param Data The REC attribute table
+#' @param FlowHab A list for each reach giving a lookup table of flow, habitat value (HV) and weighted usable area (WUA)
+#' @param Hab The type of habitat measure to return. Options are "WUA" or "HV". "WUA" is weighted usable area. The percentage of habitat area available at a particular flow.
+#' "HV" is the habitat value. Value from 0 to 1 to represent what proportion of the maximum possible habitat value at a particular flow.
+#' @param Qref the reference flow in cumecs which the "MinQ" and "AllocQ" are fractions of. If it is NULL, then it is set to the "MALF" attribute of the reach. Defaults to NULL
+#' @param prop Unused
+#' @param Plot Whether to plot the flow vs habitat curve with locations of original MALF and new MALF
+#' @return The new habitat area as a percetage of the original.
+#' @keywords REC
+#' @export
+#' @examples
+#' delta.hab()
+
 delta.hab <- function(ThisNZReach = 13524724, Data = MyREC, FlowHab = QWH, Hab = "WUA", Qref=NULL, prop=0.8, Plot = TRUE) {  # returns the widths at Qref and prop times Qref and plots this QW curve if plot=TRUE
   #browser()
   ThisRow <- which(Data$NZReach == ThisNZReach)
   if (is.null(Qref)) { Qref <- Data[ThisRow, "MALF"] } # the reference flow is the MALf from the hyd predictions data
+  QrefNew <- Data[ThisRow, "MinQ"]*Qref               #This is the new minimum flow after allocation
   #browser()
+  
+  #With groundwater takes it may be possible to end up with a minimum flow less than the minimum flow rule (e.g. if the reach is all aquifer sourced)
+  #So we need to estimate what the MALF might be just from GW takes. Do this by finding the frequency of MALF under natural flows, then
+  # find the flow at the same frequency from the flow duration curve calculated accounting for groundwater takes
+
+  #Find the FDC for the reach of interest
+  Perc <- seq(0,1, length = 101)
+  FDC.data <- GenFDC(ThisNZReach = ThisNZReach, P = Perc, Data = Data)
+  #Find frequency of Qref
+  QrefFreq <- approx(x=FDC.data,y=Perc, xout=Qref)$y
+  #Find the Altered FDC accounting for the Groundwater abstraction
+  #Adjust the flow duration curve for any groundwater allocation
+  GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
+  #GWTakeFDCShift <- 0 
+  FDCGWTakeAffected.data <- FDC.data - GWTakeFDCShift
+  #Set any -ves to 0
+  FDCGWTakeAffected.data[FDCGWTakeAffected.data <0] <- 0
+  #Find the new flow for the Altered FDC
+  QrefNewGW <- approx(x=Perc, y=FDCGWTakeAffected.data,xout=QrefFreq)$y
+  #If this is less than the reaches minimum flow (as given by the product of its "MinQ" and  attribute)
+  if (QrefNewGW < QrefNew) QrefNew <- QrefNewGW
+  
   Q <- FlowHab[[ThisRow]]$Q   #  get flow vs habitat
   H <- unlist(FlowHab[[ThisRow]][Hab])
 
@@ -321,7 +373,10 @@ delta.hab <- function(ThisNZReach = 13524724, Data = MyREC, FlowHab = QWH, Hab =
     DeltaHab <- NA
   } else {
     
-    habs <-  approx(x=Q, y=H, xout=c(Qref, Data[ThisRow, "MinQ"]*Qref))$y # interploate W vs Q data
+    #The next line is where props is supposed to be used, but instead it uses MinQ
+    #QrefNew <- Data[ThisRow, "MinQ"]*Qref
+    habs <-  approx(x=Q, y=H, xout=c(Qref, QrefNew))$y # interploate W vs Q data
+    #habs <-  approx(x=Q, y=H, xout=c(Qref, Data[ThisRow, "MinQ"]*Qref))$y # interploate W vs Q data
     hab.Qref <- habs[1]
     hab.Qnew <- habs[2]
     DeltaHab <- hab.Qnew/hab.Qref*100
@@ -330,19 +385,21 @@ delta.hab <- function(ThisNZReach = 13524724, Data = MyREC, FlowHab = QWH, Hab =
   if (Plot==TRUE) {
     par(bg="grey90")
     plot(Q, H, type="l", lwd = 2,
-         main=paste("Difference in", Hab, "for", Data[ThisRow, "MinQ"], "times Qref"),
+         main=paste("Difference in", Hab, "for", Data[ThisRow, "MinQ"], "times 7DayMALF\nand groundwater allocation of", Data[ThisRow, "GWAlloc"] ),
          xlab="Flow (m3/s)", ylab=Hab)
     abline(v=Qref, col = "green")
     abline(h=hab.Qref, col = "green", lty=2)
     abline(h=hab.Qnew, col = "orange", lty=2)
-    abline(v=Data[ThisRow, "MinQ"]*Qref, col = "orange")
-    
-    legend("bottomright",
+    #abline(v=Data[ThisRow, "MinQ"]*Qref, col = "orange")
+    abline(v=QrefNew, col = "orange")
+    legend("topright",xpd=TRUE,
            legend=c(paste("Habitat", Hab), paste("Qref = ",round(Qref, 3)), paste("Habitat at Qref =", round(hab.Qref, 2)),
-                    paste("Qnew = ",round(Data[ThisRow, "MinQ"]*Qref, 3)), paste("Habitat at Qnew = ", round(hab.Qnew, 2))),
+                    paste("Qnew = ",round(QrefNew, 3)), paste("Habitat at Qnew = ", round(hab.Qnew, 2))),
            col = c("black", "green", "green","orange","orange"),   text.col = "black", lty = c(1, 1, 2,1,2), pch = c(-1, -1),   lwd = c(2,1,1,1,1,1),
-           merge = TRUE, bg = 'white', inset = .05)
+           merge = TRUE, bg = 'white', inset = 0.05)
+    #browser()
   }
+  #browser()
   return(DeltaHab)
 }
 
