@@ -8,6 +8,7 @@
 # Functions indcluded in this script:
 #       - HabitatFunctions runs all the other functions for the reaches of interest within an REC set.
 #       - IntegratedWidth Calculates the reduction in width over the whole FDC
+#       - NaturalWidth
 #       - habitat         Calculates the available habitat for a prescribed species
 #       - delta.hab       Calcualtes the change in habitat
 
@@ -59,57 +60,57 @@ MyREC$NaturalWidth <- sapply(pick,NaturalWidth,FDC = MyFDC, FlowWidth = QW, Data
 
 print("Calculating change in habitat...")
 #browser()
-QWH <- lapply(pick, habitat,sp="LongEel",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="LongEel",FDC = MyFDC,FlowWidth = QW,Data=MyREC)
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaEEL<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="ShortEel",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="ShortEel",FDC = MyFDC,FlowWidth = QW,Data=MyREC) 
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaShortEEL<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Brown trout adult",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Brown trout adult",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTrout<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Bluegill Bully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Bluegill Bully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaBully<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Inanga",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Inanga",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaInanga<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Torrent",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Torrent",FDC = MyFDC,FlowWidth = QW,Data=MyREC) 
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTorrent<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Kokopu",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Kokopu",FDC = MyFDC,FlowWidth = QW,Data=MyREC) 
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaKokopu<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="ComBully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="ComBully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaComBully<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Fry",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Fry",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTroutFry<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Spawn",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Spawn",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTroutSpawn<-delta.EEL
 
-QWH <- lapply(pick, habitat,sp="Upland Bully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  #  , sp="Fry"
+QWH <- lapply(pick, habitat,sp="Upland Bully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
 delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaUplandBully<-delta.EEL
@@ -145,7 +146,7 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
   #Qbar <- this.seg$Flow_L_s/1000
   Qbar <- Data[ThisRow, "MeanFlow"]             # get the mean flow for the reach of interest
   if(is.na(Qbar)==F){                           # Only do the calculation if there is a value for the mean flow 
-    Q <- seq(Qbar*0.0001, Qbar, length.out=n.pairs)  # prepare a vector of flows from 0.0001 through to the mean flow in n.pairs steps
+    Q <- seq(Qbar*0.0001, Qbar, length.out=n.pairs)  # prepare a vector of flows from 0.0001 of the mean flow through to the mean flow in n.pairs steps
     if (method=="Booker") {                     # Check if the "Booker" method is to be used
       this.seg$LogCatchmentArea <- log10(this.seg$usArea/1000000)    #Find the log10 of the upstream area in metres squared
       this.seg$LogFlow <- log10(Qbar)                                #Find the log10 of the mean flow
@@ -265,7 +266,21 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
   }  
   #browser()
   return(AveWidthLoss)   #returns the loss of width
-}# end
+}# end of IntegratedWidth function
+
+###################################################################
+#' Function to compute loss of width over the whole hydrograph (FDC)
+#'
+#' this function evaluates the reduction in width over the whole FDC for the natural and altered flows 
+#' @param ThisNZReach The REC reach number of the reach of interest
+#' @param FDC a dataframe of flow rates for different percentiles (columns) for different reaches (rows)
+#' @param FlowWidth dataframe of flow vs width
+#' @param Data the REC attribute table
+#' @return The width of the reach at the mean flow
+#' @keywords REC
+#' @export
+#' @examples
+#' NaturalWidth()
 
 NaturalWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, Data = MyREC) {
   
@@ -279,10 +294,23 @@ NaturalWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, Da
     NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=Data$MeanFlow[ThisRow])$y # interploate W vs Q data
   }
   return(NaturalWidths)
-}
-###############################################################################                                                                            #
-#         Compute habitat vs flow for each NZreach                            #                                                                             #
-###############################################################################
+} # End of NaturalWidth function
+
+
+###################################################################
+#' Function to Compute habitat vs flow for each NZreach
+#'
+#' @description this function calculates the habitat versus flow relationship for a selected species
+#' @param ThisNZReach The REC reach number of the reach of interest
+#' @param FlowWidth A two column dataframe with flow in the first column and width in the second column.
+#' @param Data the REC attribute table
+#' @param sp The species of choice from one of :"Brown trout adult" (the default);"Redfin";"ComBully";"Fry";"Spawn";"Deli";"LongEel";"Torrent";"ShortEel";"Bluegill Bully";"Inanga";"Kokopu";"Upland Bully".
+#' @param FDC A dataframe of the flow duration curve values (columns) for each reach (rows)
+#' @return A dataframe of flow (Q), habitat value (HV) and Weighted Usable Area (WUA).
+#' @keywords REC
+#' @export
+#' @examples
+#' habitat()
 
 habitat <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC, sp="Brown trout adult",FDC = MyFDC) {  #
   #browser()
@@ -314,7 +342,7 @@ habitat <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC, sp="Br
   
   habMat <- data.frame(cbind(Q, HV, WUA))
   return(habMat)
-}
+}   #end of habitat function
 
 ###################################################################
 #' Function to calculate the change in habitat for a change in flow for a reach
@@ -364,8 +392,6 @@ delta.hab <- function(ThisNZReach = 13524724, Data = MyREC, FlowHab = QWH, Hab =
   
   Q <- FlowHab[[ThisRow]]$Q   #  get flow vs habitat
   H <- unlist(FlowHab[[ThisRow]][Hab])
-
-  
   
   if(Qref==0|is.na(Qref)==T| Data$TheTake[ThisRow]==0) {  # if Qref is zero the habitat is ZERO and so is delta-habitat
     hab.Qref <- NA
@@ -401,6 +427,6 @@ delta.hab <- function(ThisNZReach = 13524724, Data = MyREC, FlowHab = QWH, Hab =
   }
   #browser()
   return(DeltaHab)
-}
+}    #End of delta.hab function
 
-##############################################################################
+
