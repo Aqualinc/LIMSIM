@@ -100,8 +100,9 @@ RunOne=function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,La
                 TakeAll=TakeAll,SysCap=SysCap,EffIrriArea=EffIrriArea,WQModel=WQModel,QWModel=QWModel){
   MyREC1<-Run_FlowandAbstraction(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,TakeAll=TakeAll,SysCap=SysCap,
                                  EffIrriArea=EffIrriArea)
+  #The water quality and periphyton models, are affected by BFI, nNeg and FRE3.Count which are altered by the flow and abstraction routines above.
   MyREC1<-Run_WQandPeri(MyREC=MyREC1,LandManagement=LandManagement,IrrigableAreaTarget=IrrigableAreaTarget,
-                        AllocQ=AllocQ,GWAlloc=GWAlloc,PropIrri=PropIrri,WQModel=WQModel)
+                        AllocQ=AllocQ,GWAlloc=GWAlloc,PropIrri=PropIrri,WQModel=WQModel) 
   MyREC1<-Run_HabitatFunctions(MyREC=MyREC1,pick=pick,MinQ=MinQ,method=QWModel)
   return(MyREC1)
 }
