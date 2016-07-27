@@ -109,25 +109,42 @@ Run_WQandPeri<-function(MyREC=NULL,LandManagement="Fair",IrrigableAreaTarget=NUL
 }
 
 
-###################################################################################
-###################################################################################
+
+###################################################################
+#' Function to determine the macroinvertebrate community index (MCI) for a reach
+#'
+#' @description this function estimates the Macroinvertebrate Community Index (MCI) for a river reach
+#' @references Clapcott, J., Goodwin, E., Snelder, T., 2013. Predictive models of benthic macroinvertebrate metrics (Cawthron Report No. 2301). Ministry for the Environment, Nelson.
+#' @param Data the REC attribute table
+#' @param myCI The land management confidence interval. The error difference from the mean (in standard deviations) for which the the MCI model is to return.
+#' This is used to consider land management effects whereby the uncertainty is assumed to be directly proportional to the land management. 
+#' @param PropIrri 0 or 1. A value of 1 indicates the land management class is to be scaled by the irrigated area. In other words the land management class only applies
+#' to irrigated areas and all other areas are best represented by the mean MCI.
+#' @param AllocQ The proportion of MALF that is able to be taken from the reach
+#' @return A dataframe of estimates of the MCI for the reach for the confidence intervals defined by myCI (columns) for each reach (rows)
+#' @keywords REC
+#' @export
+#' @examples
+#' REC_TonsMCI()
+#' 
 REC_TonsMCI<-function(Data=NULL,myCI=0,PropIrri=0,AllocQ=NULL){
+  require(randomForest)                                                           #Check the "randomforest" package is loaded
+  if(!exists("hbMCIrf", mode="list")) load(file.path(dir$fun,"hbMCIrf.Rdata"))    #Check if the required MCI random forest model has been loaded
+  myCIMatrix<-matrix(data=myCI,nrow=length(Data[,1]),ncol=1)                      #Create a matrix of the original confidence intervals for each reach
+  ind<-which(MyREC$TheTake>0)                                                     #Find which reaches have a Take
+  
   #browser()
-  if (PropIrri==1){
-    myCItemp<-myCI*(min(Data$usPastoral,Data$usIrriArea/Data$CATCHAREA))/Data$usPastoral
-    myCItemp[is.na(myCItemp)]<-0
-    ind<-which(MyREC$TheTake>0)
-    myCI<-matrix(data=myCI,nrow=length(Data[,1]),ncol=1)
-    myCI[ind]<-myCItemp[ind]
-  }else{
-    myCI<-matrix(data=myCI,nrow=length(Data[,1]),ncol=1)
-    ind<-which(MyREC$TheTake==0)
-    myCI[ind]<-0
+  if (PropIrri==1){  #Scale the Land Management confidence intervals according to the proportion of irrigate area
+    myCItemp<-myCI*(min(Data$usPastoral,Data$usIrriArea/Data$CATCHAREA))/Data$usPastoral  #Scale the confidence intervals
+    myCItemp[is.na(myCItemp)]<-0                                                          #set any NA values to 0
+    myCIMatrix[ind]<-myCItemp[ind]                                                        #Replace the confidence intervals with the scaled values for every reach that has a Take
   }
-    
-  temp<-predict(hbMCIrf, newdata = Data[,row.names(importance(hbMCIrf))])
-  se<-hbMCIrf$RMSD*myCI
-  MCI<-(temp+se)
+  
+  myCIMatrix[-ind]<-0                                                         #Set all the no Take confidence interval values to 0
+      
+  MeanMCI<-predict(hbMCIrf, newdata = Data[,row.names(importance(hbMCIrf))])  #hbMCIrf is "hard bottomed MCI random forest model. Note that "importance" is a randomforest function that enables the names of the attributes used in the model to be provided
+  ScaledUncertainty<-hbMCIrf$RMSD*myCIMatrix                                  #Scale the uncertainty according to the confidence interval of interest      
+  MCI<-(MeanMCI+ScaledUncertainty)                                            #Add the scaled uncertainty to the mean
   
   return(MCI)
 }
