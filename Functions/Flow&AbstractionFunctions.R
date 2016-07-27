@@ -72,17 +72,17 @@ Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWA
     MyRECtemp$freq.man <- Restriction2$freq.man; MyRECtemp$freq.min <- Restriction2$freq.min; MyRECtemp$freq.reliability <- Restriction2$freq.reliability
     MyRECtemp$freq.man[MyRECtemp$TheTake==0]<-NA; MyRECtemp$freq.min[MyRECtemp$TheTake==0]<-NA; MyRECtemp$freq.reliability[MyRECtemp$TheTake==0]<-NA;
     
-    MyRECtemp$BFI<-MyRECtemp$BFI+predict(dBFImod,newdata=MyRECtemp)
-    MyRECtemp$BFI[MyRECtemp$TheTake==0]<-MyRECtemp$BFIorig[MyRECtemp$TheTake==0]
+    MyRECtemp$BFI<-MyRECtemp$BFI+predict(dBFImod,newdata=MyRECtemp)                     #Update the BFI based on the dBFImod model
+    MyRECtemp$BFI[MyRECtemp$TheTake==0]<-MyRECtemp$BFIorig[MyRECtemp$TheTake==0]        #Reset all the zero Take reaches back to 0
     
-    MyRECtemp$FRE2<-MyRECtemp$FRE2+predict(dFRE2mod,newdata=MyRECtemp)
-    MyRECtemp$FRE2[MyRECtemp$TheTake==0]<-MyRECtemp$FRE2orig[MyRECtemp$TheTake==0]
+    MyRECtemp$FRE2<-MyRECtemp$FRE2+predict(dFRE2mod,newdata=MyRECtemp)                  #Update the FRE2 based on the dFRE2mod model
+    MyRECtemp$FRE2[MyRECtemp$TheTake==0]<-MyRECtemp$FRE2orig[MyRECtemp$TheTake==0]      #Reset all the zero Take reaches back to 0
     
-    MyRECtemp$FRE3<-MyRECtemp$FRE3+predict(dFRE3mod,newdata=MyRECtemp)
-    MyRECtemp$FRE3[MyRECtemp$TheTake==0]<-MyRECtemp$FRE3orig[MyRECtemp$TheTake==0]
+    MyRECtemp$FRE3<-MyRECtemp$FRE3+predict(dFRE3mod,newdata=MyRECtemp)                  #Update the FRE3 based on the dFRE3mod model
+    MyRECtemp$FRE3[MyRECtemp$TheTake==0]<-MyRECtemp$FRE3orig[MyRECtemp$TheTake==0]      #Reset all the zero Take reaches back to 0
     
-    MyRECtemp$nNeg<-MyRECtemp$nNeg+predict(dnNegMOD,newdata=MyRECtemp)
-    MyRECtemp$nNeg[MyRECtemp$TheTake==0]<-MyRECtemp$nNegorig[MyRECtemp$TheTake==0]
+    MyRECtemp$nNeg<-MyRECtemp$nNeg+predict(dnNegMOD,newdata=MyRECtemp)                  #Update the nNeg based on the dnNegmod model
+    MyRECtemp$nNeg[MyRECtemp$TheTake==0]<-MyRECtemp$nNegorig[MyRECtemp$TheTake==0]      #Reset all the zero Take reaches back to 0
     
     MyREC[ind1,]<-MyRECtemp
   }
