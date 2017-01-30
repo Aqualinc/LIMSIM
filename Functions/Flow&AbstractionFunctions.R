@@ -93,7 +93,7 @@ return(MyREC)
 ###################################################################
 #' function for generating FDC (m3/s) from GEV distribution (from R package nsRFA)
 #'
-#' This function calculates how much water should be taken from a reach based on which is the smaller of the Allocation and the maximum demand 
+#' This function calculates the exceedance flows for the given percentiles, based on the flow duration curve parameters of the reach 
 #' @param ThisNZReach the NZReach number of the river reach on which to apply the function
 #' @param P a vector of percentiles
 #' @param Data the REC attribute table
