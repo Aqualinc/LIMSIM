@@ -33,11 +33,11 @@
 #' @examples
 #' Run_FlowandAbstraction()
 Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,TakeAll=0,SysCap=0.58,EffIrriArea=0.8){
-  
+  browser()
   load(file.path(dir$fun,"DeltaInd_v2.RData"))
   if(!exists("Doug.rbind.list", mode="function")) source(file.path(dir$fun,"GeneralFunctions.R"))
   
-  #Add the water take rules as attributes
+  #add the water take rules as attributes to the local "MyREC" dataframe (which is eventually returned as the function output)
   if (length(AllocQ==1)){  
     MyREC$MinQ<-matrix(MinQ,length(pick),1); MyREC$AllocQ<-matrix(AllocQ,length(pick),1); MyREC$GWAlloc<-matrix(GWAlloc,length(pick),1)
   }else{
@@ -45,9 +45,9 @@ Run_FlowandAbstraction<-function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWA
   }  
   
   # generate FDC for all NZReach.
-  Perc <<- seq(0,1, length = 101) # Perc sets percentiles for which flows are to be generated at - needs to be set globally for other functions (this is the default!)
+  Perc <<- seq(0,1, length = 101) # Perc sets percentiles for which flows are to be generated at - needs to be set globally (hence the "<<-") for other functions (this is the default!)
   print("Calculating flow duration curves....")
-  MyFDC <<- Doug.rbind.list(lapply(pick, GenFDC, Data = MyREC)) # generate FDC for all locations
+  MyFDC <<- Doug.rbind.list(lapply(pick, GenFDC, Data = MyREC)) # generate FDC for all locations - also needs to be set globally (hence the "<<-")
   names(MyFDC) <- paste("P", 100*Perc, sep="") 
   
   print("Calculating irrigation takes and reliability...")
@@ -271,4 +271,69 @@ freq.restrict <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, pr
   } #end plot
   
   return(cbind(freq.man, freq.min,freq.reliability))   #returns two values 1 = % of time restrition 2 % of time TOTAL restriction (note the variable names (freq) is poor use of words these are not frequencies!
+}# end
+
+#######################################################################################
+#' A function to calculate the reliability of supply for each band of multiband restrictions
+#'
+#' This function calculates the percentage of maximum allocation that is available for each band, assuming lower bands are fully allocated
+#' @param ThisNZReach the NZReach number of the river reach on which to apply the function
+#' @param FDC The flow duration curve
+#' @param minFlow a vector of minimum flows in cumecs that is allowed
+#' @param allocation a vector of allocation flows in cumecs that is allowed
+#' @param Data the REC attribute table which includes "minQ", "TheTake" and "AllocQ" attributes
+#' @param Data1 the REC attribute table which includes the flow duration curve attributes
+#' @return a three column dataframe of 1/ The percentage of time restritions apply 2/ The percentage of time of TOTAL restriction 3/ The fraction of full allocation
+#' @keywords REC
+#' @export
+#' @examples
+#' freq.restrict()
+freq.restrict.multiband <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, prop=0.8, Qref=NULL, RegAllocation=0.5, Plot = TRUE, Data = MyREC,Data1=MyREC) {
+  ThisRow <- which(Data$NZReach == ThisNZReach)                          # get the parameters from the FDC dataset is this faster???
+  ThisRow_ALL <- which(Data1$NZReach == ThisNZReach)
+  FDC.data         <- FDC[ThisRow_ALL, ]                                        # THIS is the FDC
+  
+  
+  freqs            <- 100*Perc                                                    # the percentiles the FDC is estimated for from the global value of Perc
+    
+  #Adjust the flow duration curve for any groundwater allocation
+    GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
+    #GWTakeFDCShift <- 0 
+    FDCGWTakeAffected.data <- FDC.data - GWTakeFDCShift
+    #Set any -ves to 0
+    FDCGWTakeAffected.data[FDCGWTakeAffected.data <0] <- 0
+    
+    if (minFlow < FDCGWTakeAffected.data[1]){minFlow <- FDCGWTakeAffected.data[1]}              # Make sure the minimum flow is at least as large as the smallest value in the flow duration curve
+    
+  #Need to loop through each band
+  for (Band in seq(1,length(minFlow))) {
+    
+  
+    if(allocation[band] == 0) minFlow[band] <- 0                                              # if there are no takes there should be no restrictions (min=0)                     
+    manFlow          <- minFlow[band]+allocation[band]                                        #  minflow+allocation = "management flow"  the flow at which restrictions begin
+    
+    freq.diff <-  approx(y=freqs, x=FDCGWTakeAffected.data, xout=c(minFlow[band]+allocation[band], minFlow[band]))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
+    freq.man         <- freq.diff[1]
+    freq.min         <- freq.diff[2]                                              # minflow= flow at which there is TOTAL restriction   
+    
+    managed.freqs <- rev(subset(freqs, freqs < freq.man & freqs > freq.min))     #These are the percentiles that disappear, in reverse order
+    managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles that disappear, in reverse order             
+    
+    #The new flow duration curve has flows reduced by the allocation flow from percentiles 100 to the percentile of the allocation flow + minimum flow (i.e. freq.diff[1])
+    #The new flow duration curve is unchanged below the minimum flow, i.e. from the percentile of the miniumum flow (freq.diff[2]) down to 0
+    #Between the upper and lower managed flow percentiles, the flows all go to the minimum flow.
+    #Note that in a previous version, the flow reduction in the managed flow section was a linear interpoaltion between allocation and 0. This results
+    #in a strange flow duration curve when the increase in flows between percentiles is less than the interpolated change. You can end up with a hollow in the flow duration curve.
+    if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow[band] else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
+    FDC.take<-approx(x=c(100,freq.man,managed.freqs,freq.min,0),y=c(allocation,allocation[band],managed.flows,0,0),xout=freqs)
+    freq.reliability[band] <- mean(FDC.take$y)/allocation[band]*100  #NOTE THIS ONLY WORKS IF FREQS iS EVENLY SAMPLED
+    
+    #Now need to update the FDC to account for the takes
+    #Original FDC from 0 to minimum flow, then step down to % at managed flows, then retain offset to maximum flows
+    #FDCGWTakeAffected.data <- 
+    #Need to figure out how to handle % allocation share. This means that between onset of restrictions and full restrictions, the available allocation might be made fully available for allocation, or maybe just 50 % is available for allocation (or some other percentage). This avoids flat lining the stream.
+}                              
+ 
+
+  return(cbind(freq.man, freq.min,freq.reliability))   #returns three columns freq.man = % of time on restrition freq.min = % of time TOTAL restriction, freq.reliability = % of max allocation available (note the variable names (freq) is poor use of words these are not frequencies!
 }# end
