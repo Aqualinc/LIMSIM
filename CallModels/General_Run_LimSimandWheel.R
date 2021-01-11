@@ -12,6 +12,7 @@ require(randomForest)
 ##############################################################
 
 rootdir<-"H:/GitRepositories/LimSim"
+rootdir<-"D:\\Projects\\Aqualinc\\projects\\MPI_WaterStorage\\LimSim" #Tim's computer
 setwd(rootdir)
 source("SetDirectories.r")
 dir<-SetDirectories(rootdir)
@@ -68,7 +69,7 @@ if (SelectSwitch==0){
       # OR.........................................................
       # select by a downstream locaiton
       
-      Pt<-11018916  #This is the outlet
+      Pt<-11027203  #This is the outlet of Flaxbourne at Corrie Downs in Marlborough District
       pick<-c(Pt,FindCatchment(Pt,MyREC,minord))}
 
 ##############################################################
@@ -80,9 +81,21 @@ MyREC<-MyREC[match(pick, MyREC$NZReach),]
 
 #_____________________________________________________________
 #DEFINING ALLOCATION SCENARIOS
-MinQ_sel   <-as.double(c(0.7))      #Define minimum flows (as a proportion of MALF)
-AllocQ_sel <-as.double(c(0.5))      #Define Allocation volumes (as a proportion of MALF)
-GWAlloc    <-as.double(c(0.0,0.2,0.4,0.6,0.8,1.0))      #Define groundwater allocation as a fraction of mean annual recharge
+
+#Defined as absolute values
+MinQ_siteRECID  <- 11027203
+MinQ_siteMALF   <- MyREC$MALF[MyREC$NZReach == MinQ_siteRECID]
+MinQ_absolute   <- 0.025    #'A' block minimum
+AllocQ_absolute <- 0.00226  #'A' block allocation
+
+#Transform back into values relative to MALF
+MinQ_sel        <- MinQ_absolute / MinQ_siteMALF
+AllocQ_sel      <- AllocQ_absolute / MinQ_siteMALF
+
+#MinQ_sel   <-as.double(c(0.7))      #Define minimum flows (as a proportion of MALF)
+#AllocQ_sel <-as.double(c(0.5))      #Define Allocation volumes (as a proportion of MALF)
+#GWAlloc    <-as.double(c(0.0,0.2,0.4,0.6,0.8,1.0))      #Define groundwater allocation as a fraction of mean annual recharge
+GWAlloc    <-as.double(c(0))
 #____________________________________________________________________________________________
 #USER DEFINED SETTINGS FOR ALL SCENARIOS
 TakeAll             <-0                 #Define whether to take ALL allocated water (1) or just that for irrigable area (0)
@@ -98,6 +111,7 @@ QWModel             <-"Jowett"          #Select which FlowWidth model to use: Jo
 #Function to run "LIMSIM" for one scenario
 RunOne=function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,LandManagement="Fair",IrrigableAreaTarget=100,PropIrri=1,
                 TakeAll=TakeAll,SysCap=SysCap,EffIrriArea=EffIrriArea,WQModel=WQModel,QWModel=QWModel){
+  #browser()
   MyREC1<-Run_FlowandAbstraction(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,TakeAll=TakeAll,SysCap=SysCap,
                                  EffIrriArea=EffIrriArea)
   #The water quality and periphyton models, are affected by BFI, nNeg and FRE3.Count which are altered by the flow and abstraction routines above.
@@ -110,7 +124,7 @@ RunOne=function(MyREC=MyREC,AllocQ=AllocQ,MinQ=MinQ,GWAlloc=GWAlloc,pick=pick,La
 ManageScenarios<-expand.grid(AllocQ_sel,MinQ_sel,GWAlloc)
 names(ManageScenarios)<-c("AllocQ","MinQ","GWAlloc")
 
-LandManagement<-c("Fair")               #Select a managemnet type of: "Good", "Fair" or "Poor"
+LandManagement<-c("Fair")               #Select a management type of: "Good", "Fair" or "Poor"
 REC_OUT<-list()
 #for (i in 1){      #for testing only
 for (i in 1:length(ManageScenarios[,1])){
@@ -124,6 +138,13 @@ for (i in 1:length(ManageScenarios[,1])){
 
 #OR Run just one scenario:
 #REC_OUT<-RunOne(MyREC=MyREC,AllocQ=1.5,MinQ=0.5,GWAlloc=0,pick=pick,LandManagement=LandManagement,IrrigableAreaTarget=100,PropIrri=1,TakeAll=TakeAll)
+
+#Or run for a single site
+bob<-RunOne(MyREC=MyREC[1,],AllocQ=0.7,MinQ=0.5,GWAlloc=0,
+                       pick=pick[1],LandManagement=LandManagement,IrrigableAreaTarget=IrrigableAreaTarget,
+                       PropIrri=PropIrri,TakeAll=TakeAll,SysCap=SysCap,EffIrriArea=EffIrriArea,
+                       WQModel=WQModel,QWModel=QWModel)
+
 
 #OPTION TO SAVE FILES FOR REUSE LATER....
 #setwd(dir$proj)
