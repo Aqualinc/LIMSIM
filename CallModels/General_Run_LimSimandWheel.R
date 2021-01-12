@@ -140,11 +140,16 @@ for (i in 1:length(ManageScenarios[,1])){
 #REC_OUT<-RunOne(MyREC=MyREC,AllocQ=1.5,MinQ=0.5,GWAlloc=0,pick=pick,LandManagement=LandManagement,IrrigableAreaTarget=100,PropIrri=1,TakeAll=TakeAll)
 
 #Or run for a single site
-bob<-RunOne(MyREC=MyREC[1,],AllocQ=0.7,MinQ=0.5,GWAlloc=0,
+SingleSiteOutput<-RunOne(MyREC=MyREC[1,],AllocQ=0.7,MinQ=0.5,GWAlloc=0,
                        pick=pick[1],LandManagement=LandManagement,IrrigableAreaTarget=IrrigableAreaTarget,
                        PropIrri=PropIrri,TakeAll=TakeAll,SysCap=SysCap,EffIrriArea=EffIrriArea,
                        WQModel=WQModel,QWModel=QWModel)
 
+#Or single site for just flow reliability
+SingleSiteOutputReliability<-Run_FlowandAbstraction(MyREC=MyREC[1,],AllocQ=0.7,MinQ=0.5,GWAlloc=0,pick=pick[1],TakeAll=TakeAll,SysCap=SysCap,
+                               EffIrriArea=EffIrriArea)
+
+freq.restrict.multiband()
 
 #OPTION TO SAVE FILES FOR REUSE LATER....
 #setwd(dir$proj)
