@@ -284,11 +284,15 @@ freq.restrict <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, pr
 #' @param allocation_share a vector of allocation share percentages when flows are below the management flow, one element for each band. Length of vector must equal length of the minFlow vector
 #' @param GWAlloc the ground water allocation as a fraction of the mean annual aquifer recharge
 #' @param Data the REC attribute table which includes "minQ", "TheTake" and "AllocQ" attributes
+#' @param FDCPlot True/False. Whether to gerate a plot file of the flow duration curve (naturalised and adjusted) with band limits and reliabilities
+#' @param SiteName. Passed through to FDCPlot(). Only needed if FDCPlot is True. Used to label the plot and name the file.
+#' @param PlotFilePath. Passed through to FDCPlot(). Only needed if FDCPlot is TRUE. Directory location of where the FDC plot is to be saved.
 #' @return a three column dataframe of:
 #'  1/ The percentage of time restritions apply 
 #'  2/ The percentage of time of TOTAL restriction 
 #'  3/ The fraction of full allocation
-#'  Number of rows equals the length of the minFlow and allocation vectors
+#'  Number of rows equals the length of the minFlow and allocation vectors.
+#'  Side effect of a flow duration curve plot file if FDCPlot = TRUE
 #' @keywords REC
 #' @export
 #' @examples
@@ -298,8 +302,11 @@ freq.restrict.multiband <- function(ThisNZReach = 11027203,
                                     allocation=c(0.002,0.005,0,0.05,1),
                                     allocation_share=c(50,50,50,50,50),
                                     GWAlloc=0,
-                                    Data = MyREC) {
-  #browser()
+                                    Data = MyREC,
+                                    FDCPlot = FALSE,
+                                    SiteName = "Unknown",
+                                    PlotFilePath = getwd()) {
+
   ThisRow     <- which(Data$NZReach == ThisNZReach)                          # get the parameters from the FDC dataset is this faster???
   
   # generate FDC.
@@ -358,9 +365,76 @@ freq.restrict.multiband <- function(ThisNZReach = 11027203,
     FDCGWTakeAffected.data<-FDCGWTakeAffected.data - FDC.take$y
     
   }
-  #browser()
+ 
   # Add up the total water availability and so determine the overall reliability
+  MaxTotalAllocation <- sum(allocation,na.rm=TRUE)
   total_available <- sum(freq.reliability/100 * allocation, na.rm=TRUE)
-  PctReliability <- total_available / sum(allocation) * 100
-  return(PctReliability)
+  PctReliability <- round(total_available / MaxTotalAllocation * 100,1)
+  
+  #Lastly, if a plot is required, generate it
+  if (FDCPlot == TRUE){
+  FDCPlot(ThisNZReach = ThisNZReach, SiteName = SiteName, 
+                      FDC = FDC.data,
+                      AdjustedFDC = FDCGWTakeAffected.data,
+                      minFlow=minFlow,
+                      allocation=allocation,
+                      reliability=freq.reliability,
+                      PlotFilePath = PlotFilePath)
+  }
+  
+  return(c(MaxAlloc=round(MaxTotalAllocation,3),PctReliability=PctReliability))
 }# end
+
+
+#######################################################################################
+#' A function to plot a flow duration curve
+#'
+#' This function creates a plot of a flow duration curve with the flow rate on the y axis, and the percentage of time flow exceeded on the x axis
+#' Allocation band flow rate lines are shown with related security of supply
+#' The plots are intended to mimic the plot shown in the Aqualinc Proposal to MPI for the "Water Storage - Technical Review" project, 
+#' under Task 2 - Security of Supply (page 11). Except that x and y axis are swapped.
+#' @param ThisNZReach the NZReach number of the river reach on which to apply the function. Defaults to 11027203, Flaxbourne at Corrie Downs in Marlborough.
+#' @param SiteName the site name. Defaults to "Flaxbourne at Corrie Downs" in Marlborough.
+#' @param FDC The natural flow duration curve vector
+#' @param AdjustedFDC The flow duration curve following maximum allocation
+#' @param minFlow a vector of minimum flows, one element for each band, in cumecs
+#' @param allocation a vector of allocation flows, one element for each band, in cumecs. Length of vector must equal length of the minFlow vector
+#' @param reliability a vector of percentage reliabilities related to each band
+#' @param PlotFilePath directory path to where the plot file should be saved. Defaults to the working directory.
+#' @return nothing
+#' @keywords REC
+#' @export
+#' @examples
+#' FDCPlot()
+#' 
+FDCPlot <- function(ThisNZReach = 11027203, SiteName = "Flaxbourne at Corrie Downs", 
+                    FDC = bob,
+                    AdjustedFDC = bobAdjusted,
+                    minFlow=c(0.025,0.045,0.25,0.4,0.6),
+                    allocation=c(0.002,0.005,0,0.05,1),
+                    reliability=c(99.01, 98.78, NaN, 48.61, 17.46),
+                    PlotFilePath = getwd()){
+  
+  #Plot the naturalised flow duration curve
+  plot(rev(FDC), type = "l",lty = 2, xlab = "Percentage of time flow exceeded", ylab = "Flow (cumecs)")
+  
+  #Add titles
+  mtext(side=3, line = 2, at = -0.07, adj=0, cex=1, SiteName)
+  mtext(side=3, line = 1, at = -0.07, adj=0, cex=1, paste("RECV1 ReachID:",ThisNZReach))
+  
+  #Over plot the adjusted curve
+  lines(rev(AdjustedFDC), lwd = 5, col= "grey")
+  lines(rev(FDC), lty = 2)
+  
+  #Add lines for the various bands
+  for(band in seq(1:length(minFlow))){
+  abline(h=minFlow[band], col = "blue")
+  abline(v=reliability[band], col = "red")
+  }
+  legend("topright",legend = c("Natural","Adjusted","Minimum flow rates","Reliabilities"),
+         lty =c(2,1,1,1),lwd = c(1,5,1,1,1),col = c("black","grey","blue","red"),
+         bg="#FFFFFF")
+  dev.copy(png,file.path(PlotFilePath,paste("FDC for",SiteName,".png")))
+  dev.off()
+  return()
+}
