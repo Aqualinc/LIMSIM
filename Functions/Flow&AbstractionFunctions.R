@@ -314,63 +314,12 @@ freq.restrict.multiband <- function(ThisNZReach = 11027203,
   FDC.data <- GenFDC(ThisNZReach = ThisNZReach,P=Perc, Data = MyREC)
   names(FDC.data) <- paste("P", 100*Perc, sep="")
   
-  freqs            <- 100*Perc                                                    # the percentiles the FDC is estimated for from the global value of Perc
+  AdjustedFDC <- FDCAdjust(ThisRow=ThisRow, FDC.data = FDC.data, Data = Data, GWAlloc = GWAlloc, minFlow = minFlow,allocation = allocation,allocation_share = allocation_share)
   
-  #Adjust the flow duration curve for any groundwater allocation
-  GWTakeFDCShift <- GWAlloc * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
-  FDCGWTakeAffected.data <- FDC.data - GWTakeFDCShift
-  #Set any -ves to 0
-  FDCGWTakeAffected.data[FDCGWTakeAffected.data <0] <- 0
+  #Extract the useful stuff from theoutput of the FDCAdjust() function
+  freq.reliability       <- AdjustedFDC[["ReliabilityPcts"]]
+  FDCGWTakeAffected.data <- AdjustedFDC[["AdjustedFDC"]]
   
-  # Make sure the minimum flow is at least as large as the smallest value in the flow duration curve
-  if (minFlow[1] < FDCGWTakeAffected.data[1]){minFlow[1] <- FDCGWTakeAffected.data[1]}              
-  
-  #Initialise output reliability vectors  
-  freq.min <- rep(NA,length(minFlow))
-  freq.man <- freq.min
-  freq.reliability <- freq.min
-  
-  #loop through each flow allocation band
-  for (band in seq(1,length(minFlow))) {
-    
-    if(allocation[band] == 0) minFlow[band] <- 0                                              # if there are no takes there should be no restrictions (min=0)                     
-    
-    #Determine the "management flow" i.e. the flow at which restrictions begin
-    # This is affected by the allocation share percentage.
-    #For example, if the share is X %, then the management flow is at min_flow + allocation_flow * 100/X.
-    manFlow          <- minFlow[band]+allocation[band] * 100/allocation_share[band]          
-    
-    freq.diff <-  approx(y=freqs, x=FDCGWTakeAffected.data, xout=c(manFlow, minFlow[band]))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
-    freq.man[band]         <- freq.diff[1]
-    freq.min[band]         <- freq.diff[2]                                              # minflow= flow at which there is TOTAL restriction   
-    
-    #Find which of the FDC percentiles are between the band's minimum flow, and its management flow.
-    #The management flow depends on the flow sharing. 
-    managed.freqs <- rev(subset(freqs, freqs < freq.man[band] & freqs > freq.min[band]))     #These are the percentiles within the min flow and management flow band, in reverse order
-    managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles, in reverse order             
-    
-    #if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow[band] else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
-    
-    #alternative that uses the allocation_share parameter to determine how much is available within the managed flow range
-    if(length(managed.freqs > 0)) {
-      managed.flows <- allocation_share[band]/100 * (FDCGWTakeAffected.data[managed.freq.indices] - minFlow[band])
-    }else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
-    
-    #Create a flow duration curve for the band's take
-    FDC.take<-approx(x=c(100,freq.man[band],managed.freqs,freq.min[band],0),y=c(allocation[band],allocation[band],managed.flows,0,0),xout=freqs)
-    freq.reliability[band] <- mean(FDC.take$y)/allocation[band]*100  #NOTE THIS ONLY WORKS IF FREQS iS EVENLY SAMPLED
-    
-    #Need to adjust the FDC so that the next band's reliability can be assessed
-    #The new flow duration curve has flows reduced by the allocation flow from percentiles 100 to the percentile of the allocation flow + minimum flow (i.e. freq.diff[1])
-    #The new flow duration curve is unchanged below the minimum flow, i.e. from the percentile of the miniumum flow (freq.diff[2]) down to 0
-    #Between the upper and lower managed flow percentiles, the flows all go to the minimum flow.
-    #Note that in a previous version, the flow reduction in the managed flow section was a linear interpoaltion between allocation and 0. This results
-    #in a strange flow duration curve when the increase in flows between percentiles is less than the interpolated change. You can end up with a hollow in the flow duration curve.
-    
-    FDCGWTakeAffected.data<-FDCGWTakeAffected.data - FDC.take$y
-    
-  }
- 
   # Add up the total water availability and so determine the overall reliability
   MaxTotalAllocation <- sum(allocation,na.rm=TRUE)
   total_available <- sum(freq.reliability/100 * allocation, na.rm=TRUE)
@@ -406,7 +355,10 @@ freq.restrict.multiband <- function(ThisNZReach = 11027203,
 #' @examples
 #' FDCPlot()
 #' 
-FDCPlot <- function(ThisRow,FDC.data,Data,GWAlloc,minFlow,allocation,allocation_share){
+FDCAdjust <- function(ThisRow,FDC.data,Data,GWAlloc,minFlow,allocation,allocation_share){
+  
+  #Create the percentiles that the FDC data are estimated for
+  freqs            <- as.numeric(sub("P","",names(FDC.data)))                                                                                    
   
   #Adjust the flow duration curve for any groundwater allocation
   GWTakeFDCShift <- GWAlloc * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
@@ -462,7 +414,7 @@ FDCPlot <- function(ThisRow,FDC.data,Data,GWAlloc,minFlow,allocation,allocation_
     FDCGWTakeAffected.data<-FDCGWTakeAffected.data - FDC.take$y
     
   }
-  return(list(AdjustedFDC = FDCGWTakeAffected.data,ReliabiliyPcts = freq.reliability))
+  return(list(AdjustedFDC = FDCGWTakeAffected.data,ReliabilityPcts = freq.reliability))
 }
 
 
