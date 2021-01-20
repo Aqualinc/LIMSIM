@@ -334,17 +334,22 @@ freq.restrict.multiband <- function(ThisNZReach = 11027203,
   for (band in seq(1,length(minFlow))) {
     
     if(allocation[band] == 0) minFlow[band] <- 0                                              # if there are no takes there should be no restrictions (min=0)                     
-    manFlow          <- minFlow[band]+allocation[band]                                        #  minflow+allocation = "management flow"  the flow at which restrictions begin
     
-    freq.diff <-  approx(y=freqs, x=FDCGWTakeAffected.data, xout=c(minFlow[band]+allocation[band], minFlow[band]))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
+    #Determine the "management flow" i.e. the flow at which restrictions begin
+    # This is affected by the allocation share percentage.
+    #For example, if the share is X %, then the management flow is at min_flow + allocation_flow * 100/X.
+    manFlow          <- minFlow[band]+allocation[band] * 100/allocation_share[band]          
+    
+    freq.diff <-  approx(y=freqs, x=FDCGWTakeAffected.data, xout=c(manFlow, minFlow[band]))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
     freq.man[band]         <- freq.diff[1]
     freq.min[band]         <- freq.diff[2]                                              # minflow= flow at which there is TOTAL restriction   
     
-    #Find which of the FDC percentiles are between the band's minimum flow, and its management flow
+    #Find which of the FDC percentiles are between the band's minimum flow, and its management flow.
+    #The management flow depends on the flow sharing. 
     managed.freqs <- rev(subset(freqs, freqs < freq.man[band] & freqs > freq.min[band]))     #These are the percentiles within the min flow and management flow band, in reverse order
     managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles, in reverse order             
     
-    if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow[band] else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
+    #if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow[band] else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
     
     #alternative that uses the allocation_share parameter to determine how much is available within the managed flow range
     if(length(managed.freqs > 0)) {
