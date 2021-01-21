@@ -355,13 +355,18 @@ freq.restrict.multiband <- function(ThisNZReach = 11027203,
 #' @examples
 #' FDCPlot()
 #' 
-FDCAdjust <- function(ThisRow,FDC.data,Data,GWAlloc,minFlow,allocation,allocation_share){
-  
+FDCAdjust <- function(ThisNZReach,FDC.data,Data,
+                      minFlow=c(0.025,0.045,0.25,0.4,0.6),
+                      allocation=c(0.002,0.005,0,0.05,1),
+                      allocation_share=c(50,50,50,50,50),
+                      GWAlloc=0){
+
+  ReachIndex <- which(Data$NZReach == ThisNZReach)
   #Create the percentiles that the FDC data are estimated for
   freqs            <- as.numeric(sub("P","",names(FDC.data)))                                                                                    
   
   #Adjust the flow duration curve for any groundwater allocation
-  GWTakeFDCShift <- GWAlloc * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
+  GWTakeFDCShift <- GWAlloc * Data$AqBaseFlow[ReachIndex] * Data$BaseFlow[ReachIndex] #Calculate the shift in the FDC resulting from the Groundwater allocation
   FDCGWTakeAffected.data <- FDC.data - GWTakeFDCShift
   #Set any -ves to 0
   FDCGWTakeAffected.data[FDCGWTakeAffected.data <0] <- 0

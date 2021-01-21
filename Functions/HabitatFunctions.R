@@ -29,15 +29,21 @@ if(!exists("Run_FlowandAbstraction", mode="function")) source(file.path(dir$fun,
 #' @param pick The REC reach numbers of interest
 #' @param method either "Booker" based on Booker 2009 (default) or "Jowett" based on Jowett 1998
 #' @param MyREC the REC attribute table
-#' @param MinQ the minimum flow rule as a fraction of the seven day MALF
+#' @param MinQ the minimum flow rule (cumecs)
+#' @param GWAlloc the groundwater allocation (cumecs)
 #' @return A dataframe of flow (Q) and width (W)
 #' @keywords REC
 #' @export
 #' @examples
 #' Run_HabitatFunctions()
 
-Run_HabitatFunctions<-function(MyREC=NULL,pick=pick,MinQ=0,method="Jowett"){
+Run_HabitatFunctions<-function(MyREC=NULL,pick=pick,MinQ=0,GWAlloc=0,method="Jowett"){
 
+  #Subset the REC data to just the rows of interest
+  MyREC <- MyREC[MyREC$NZReach == pick,]
+  MyREC$MinQ <- MinQ
+  MyREC$GWAlloc <- GWAlloc
+  
   if (method=="Booker"){
     print("Calculating Booker QW relationships...")
     load(paste(dir$fun,"BookerModel.RData",sep="/"))  # this loads Doug's fitted models to estimate width using catchment area and climate category 
@@ -50,69 +56,75 @@ Run_HabitatFunctions<-function(MyREC=NULL,pick=pick,MinQ=0,method="Jowett"){
 names(QW) <- pick   # names the list elements
 # the mean reduction in width for flows up to the mean (the largest value in QW
 print("Calculating reduction in width...")
-#browser()
-MyREC$RedWidth<- sapply(pick, IntegratedWidth, FDC = MyFDC, FlowWidth = QW, minFlow=NULL,
-                          Qref=NULL, Plot = F, Data = MyREC)
+
+# generate FDC.
+Perc <- seq(0,1, length = 101) # Perc sets percentiles for which flows are to be generated at
+MyFDC <- GenFDC(ThisNZReach = pick,P=Perc, Data = MyREC)
+names(MyFDC) <- paste("P", 100*Perc, sep="")
+
+#MyREC$RedWidth<- sapply(pick, IntegratedWidth, FlowWidth = QW, minFlow=NULL,
+#                          Qref=NULL, Plot = F, Data = MyREC)
+MyREC$RedWidth<- sapply(pick, IntegratedWidthV2, FlowWidth = QW)
 #RedWidth(is.na(RedWidth))<-0
 #MyREC$RedWidth[which(is.na(MyREC$RedWidth)==T)]<-0
 
-MyREC$NaturalWidth <- sapply(pick,NaturalWidth,FDC = MyFDC, FlowWidth = QW, Data = MyREC)
+MyREC$NaturalWidth <- sapply(pick,NaturalWidth,FlowWidth = QW, Data = MyREC)
 
 print("Calculating change in habitat...")
-#browser()
+
 QWH <- lapply(pick, habitat,sp="LongEel",FDC = MyFDC,FlowWidth = QW,Data=MyREC)
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaEEL<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="ShortEel",FDC = MyFDC,FlowWidth = QW,Data=MyREC) 
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaShortEEL<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Brown trout adult",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTrout<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Bluegill Bully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaBully<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Inanga",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaInanga<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Torrent",FDC = MyFDC,FlowWidth = QW,Data=MyREC) 
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTorrent<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Kokopu",FDC = MyFDC,FlowWidth = QW,Data=MyREC) 
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaKokopu<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="ComBully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaComBully<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Fry",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTroutFry<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Spawn",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaTroutSpawn<-delta.EEL
 
 QWH <- lapply(pick, habitat,sp="Upland Bully",FDC = MyFDC,FlowWidth = QW,Data=MyREC)  
 names(QWH) <- pick  # names the list elements
-delta.EEL <- sapply(pick, delta.hab, Plot = F,prop=MinQ,FlowHab = QWH, Hab = "WUA",Data = MyREC)
+delta.EEL <- sapply(pick, delta.hab, Plot = F,FlowHab = QWH, Hab = "WUA",Data = MyREC)
 MyREC$deltaUplandBully<-delta.EEL
 
 return(MyREC)
@@ -142,8 +154,7 @@ return(MyREC)
 GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data=MyREC,IntModelCl=NA,SlopeModelCl=NA,QuadModelCl=NA) {   
   ThisRow <- which(Data$NZReach == ThisNZReach) # find which row of the REC data has the reach of interest
   this.seg <- Data[ThisRow, ]                   # get all the data for the reach of interest
-  #browser()
-  #Qbar <- this.seg$Flow_L_s/1000
+
   Qbar <- Data[ThisRow, "MeanFlow"]             # get the mean flow for the reach of interest
   if(is.na(Qbar)==F){                           # Only do the calculation if there is a value for the mean flow 
     Q <- seq(Qbar*0.0001, Qbar, length.out=n.pairs)  # prepare a vector of flows from 0.0001 of the mean flow through to the mean flow in n.pairs steps
@@ -166,7 +177,6 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
     QW<-NA
   }
   return(QW)
-  #browser()
 }
 
 
@@ -175,7 +185,6 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
 #'
 #' this function evaluates the reduction in width over the whole FDC for the natural and altered flows 
 #' @param ThisNZReach The REC reach number of the reach of interest
-#' @param FDC a dataframe of flow rates for different percentiles (columns) for different reaches (rows)
 #' @param FlowWidth dataframe of flow vs width
 #' @param minFlow the minimum flow in cumecs. If this is NULL then it is calculated from the MinQ attribute in the REC table. Default is NULL
 #' @param Qref the reference flow in cumecs which the "prop" and "allocate" are fractions of. If it is NULL, then it is set to the "MALF" attribute of the reach. Defaults to NULL
@@ -187,11 +196,12 @@ GetWidth <- function(ThisNZReach = 13524724, method="Booker", n.pairs = 10, Data
 #' @examples
 #' IntegratedWidth()
 
-IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, minFlow=NULL, Qref=NULL, Plot = TRUE, Data = MyREC) {
+IntegratedWidth <- function(ThisNZReach = 13524724, FlowWidth = QW, minFlow=NULL, Qref=NULL, Plot = TRUE, Data = MyREC) {
   
-  #browser()
   ThisRow <- which(Data$NZReach == ThisNZReach)                        # Get the row number of the REC attribute table for the reach of interest 
-  if(Data$TheTake[ThisRow] == 0 | anyNA(FlowWidth[[ThisRow]])) {  # if there is no take or there is an NA in the FlowWidth table, skip entirely width loss is ZERO  -> NA
+  
+  # if there is no take or there is an NA in the FlowWidth table, skip entirely width loss is ZERO  -> NA. Note the use of identical() to get around the possibility that $TheTake has not been set or is missing. See https://stackoverflow.com/questions/44774483/compare-a-value-to-null-why-is-this-true
+  if(identical(Data$TheTake[ThisRow],0) | anyNA(FlowWidth[[as.character(ThisNZReach)]])) {  
     AveWidthLoss <- NA
   } else {
     
@@ -205,13 +215,12 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       allocation <- Data$AllocQ[ThisRow] * Qref                        # if not then the allocation will be Qref * allocate. The DEFAULT for Qref= MALF, this allows for rules of thumb to be used.
     }
     
-    if (anyNA(FDC[ThisRow, ])){
-      AveWidthLoss <-NA
-    }else{
-      # obtain FDC data for this REACH 
-      FDC.data <- FDC[ThisRow, ]                                      # THIS is the FDC
-      freqs    <- 100*Perc                                            # the percentiles the FDC is estimated for from the global value of Perc
-      
+    # generate FDC.
+    Perc <- seq(0,1, length = 101) # Perc sets percentiles for which flows are to be generated at
+    FDC.data <- GenFDC(ThisNZReach = ThisNZReach,P=Perc, Data = MyREC)
+    names(FDC.data) <- paste("P", 100*Perc, sep="")
+    
+
       #Adjust the flow duration curve for any groundwater allocation
       GWTakeFDCShift <- Data$GWAlloc[ThisRow] * Data$AqBaseFlow[ThisRow] * Data$BaseFlow[ThisRow] #Calculate the shift in the FDC resulting from the Groundwater allocation
       #GWTakeFDCShift <- 0 
@@ -228,7 +237,6 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       
       #AlteredFDC<-FDCGWTakeAffected.data - approx(x=c(100,freq.diff,0),y=c(allocation+GWTakeFDCShift,allocation+GWTakeFDCShift,GWTakeFDCShift,GWTakeFDCShift),xout=freqs)$y
       
-      #browser()
       managed.freqs <- rev(subset(freqs, freqs < freq.diff[1] & freqs > freq.diff[2]))  #These are the percentiles that disappear, in reverse order
       managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles that disappear, in reverse order             
       
@@ -240,16 +248,15 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
       AlteredFDC<-FDCGWTakeAffected.data - approx(x=c(100,freq.diff[1],managed.freqs,freq.diff[2],0),y=c(allocation,allocation,managed.flows,0,0),xout=freqs)$y
      
-      #browser()
-      Qa <- FlowWidth[[ThisRow]]$Q                                    # the QW calculations corresponding to the reach of interest
-      W  <- FlowWidth[[ThisRow]]$W
+      Qa <- FlowWidth[[as.charactr(ThisNZReach)]]$Q                                    # the QW calculations corresponding to the reach of interest
+      W  <- FlowWidth[[as.character(ThisNZReach)]]$W
         
       NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=FDC.data)$y   # interploate W vs Q data
       AlteredWidths <- approx(x=c(0,Qa), y=c(0,W), xout=AlteredFDC)$y # interploate W vs Q data
       
       AveWidthLoss <-   mean((AlteredWidths - NaturalWidths)/NaturalWidths, na.rm=T) *100 # mean reduction in width (percentage of natural flow) 
     }
-    #browser()
+
     if(Plot==TRUE)   {
       x11(); par(mfrow=c(2,1), bg="grey90")
       freq.diff <-  approx(y=freqs, x=FDC.data, xout=c(minFlow+allocation, minFlow))$y # interploate W vs Q data
@@ -262,19 +269,68 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
       plot(freqs, NaturalWidths, log="y", col="blue", lwd=2, type="l", xlab="Time flow is equalled or exceeded (%)", ylab="Width")
       points(freqs, AlteredWidths,col="red", lwd=2, type="l")
     } #end plot
-  #browser()
-  }  
-  #browser()
+
   return(AveWidthLoss)   #returns the loss of width
 }# end of IntegratedWidth function
 
 ###################################################################
-#' Function to compute loss of width over the whole hydrograph (FDC)
+#' Function to compute loss of width over the whole hydrograph (FDC) Version 2. Uses the adjust FDC function
 #'
 #' this function evaluates the reduction in width over the whole FDC for the natural and altered flows 
 #' @param ThisNZReach The REC reach number of the reach of interest
-#' @param FDC a dataframe of flow rates for different percentiles (columns) for different reaches (rows)
-#' @param FlowWidth dataframe of flow vs width
+#' @param FlowWidth a list of dataframes of flow vs width. One for each reach in Data
+#' @param minFlow a vector of minimum flows, one element for each band, in cumecs
+#' @param allocation a vector of allocation flows, one element for each band, in cumecs. Length of vector must equal length of the minFlow vector
+#' @param allocation_share a vector of allocation share percentages when flows are below the management flow, one element for each band. Length of vector must equal length of the minFlow vector
+#' @param GWAlloc the ground water allocation as a fraction of the mean annual aquifer recharge
+#' @param Data the REC attribute table
+#' @return The average width loss resulting from the allocations
+#' @keywords REC
+#' @export
+#' @examples
+#' IntegratedWidthV2()
+
+IntegratedWidthV2 <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC,
+                              minFlow=c(0.025,0.045,0.25,0.4,0.6),
+                              allocation=c(0.002,0.005,0,0.05,1),
+                              allocation_share=c(50,50,50,50,50),
+                              GWAlloc=0) {
+  
+  # generate FDC.
+  Perc <- seq(0,1, length = 101) # Perc sets percentiles for which flows are to be generated at
+  FDC.data <- GenFDC(ThisNZReach = ThisNZReach,P=Perc, Data = MyREC)
+  names(FDC.data) <- paste("P", 100*Perc, sep="")
+  
+  # Get the row number of the REC attribute table for the reach of interest
+  ThisRow <- which(Data$NZReach == ThisNZReach)                         
+
+  AlteredFDC <- FDCAdjust(ThisNZReach = ThisNZReach,FDC.data = FDC.data,Data = Data,
+                              GWAlloc = GWAlloc,
+                              minFlow = minFlow,
+                              allocation = allocation,
+                              allocation_share=allocation_share)[["AdjustedFDC"]]
+  
+  #AlteredFDC<-FDCGWTakeAffected.data - approx(x=c(100,freq.diff[1],managed.freqs,freq.diff[2],0),y=c(allocation,allocation,managed.flows,0,0),xout=freqs)$y
+  
+  # Get the flows and widths corresponding to the reach of interest
+  Qa <- FlowWidth[[as.character(ThisNZReach)]]$Q                                    
+  W  <- FlowWidth[[as.character(ThisNZReach)]]$W
+  
+  NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=FDC.data)$y   # interploate W vs Q data
+  AlteredWidths <- approx(x=c(0,Qa), y=c(0,W), xout=AlteredFDC)$y # interploate W vs Q data
+  
+  AveWidthLoss <-   mean((AlteredWidths - NaturalWidths)/NaturalWidths, na.rm=T) *100 # mean reduction in width (percentage of natural flow) 
+  
+  
+  return(AveWidthLoss)   #returns the loss of width
+}# end of IntegratedWidthV2 function
+
+###################################################################
+#' Function to compute width at mean flow of natural flows
+#'
+#' this function finds the width at mean flow from the FlowWidth dataframe 
+#' @param ThisNZReach The REC reach number of the reach of interest
+#' @param FlowWidth a list of dataframes of flow vs width. One for each reach in Data
 #' @param Data the REC attribute table
 #' @return The width of the reach at the mean flow
 #' @keywords REC
@@ -282,17 +338,14 @@ IntegratedWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW,
 #' @examples
 #' NaturalWidth()
 
-NaturalWidth <- function(ThisNZReach = 13524724, FDC = MyFDC, FlowWidth = QW, Data = MyREC) {
+NaturalWidth <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC) {
   
-  ThisRow <- which(Data$NZReach == ThisNZReach) # 
-  if (anyNA(FDC[ThisRow, ])==T){
-    NaturalWidths<-NA 
-    
-  }else{
+  ThisRow <- which(names(FlowWidth) == ThisNZReach) # 
+
     Qa <- FlowWidth[[ThisRow]]$Q   # the QW calculations corresponding to the NZReach
     W <- FlowWidth[[ThisRow]]$W
     NaturalWidths <- approx(x=c(0,Qa), y=c(0,W), xout=Data$MeanFlow[ThisRow])$y # interploate W vs Q data
-  }
+  
   return(NaturalWidths)
 } # End of NaturalWidth function
 
@@ -329,11 +382,11 @@ habitat <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC, sp="Br
   if(any(sp%in%"Upland Bully"))      hab.par <- c(0.19, 13.13)   # upland bully
   
   ThisRow <- which(Data$NZReach == ThisNZReach) #
-  if (anyNA(FDC[ThisRow, ])==T){
+  if (anyNA(FDC)==T){
     Q<-NA; HV<-NA; WUA<-NA
   }else{
-  Q <- FlowWidth[[ThisRow]]$Q
-  W <- FlowWidth[[ThisRow]]$W
+  Q <- FlowWidth[[as.character(ThisNZReach)]]$Q
+  W <- FlowWidth[[as.character(ThisNZReach)]]$W
   HV.raw <- (Q/W)^hab.par[1] *  exp(-hab.par[2] * (Q/W))
   # HV.raw[1] <- 0   # replace the first column with zero NaN produced above
   HV <- HV.raw/max(HV.raw) # normalise the HV values
@@ -363,11 +416,11 @@ habitat <- function(ThisNZReach = 13524724, FlowWidth = QW, Data = MyREC, sp="Br
 #' delta.hab()
 
 delta.hab <- function(ThisNZReach = 13524724, Data = MyREC, FlowHab = QWH, Hab = "WUA", Qref=NULL, prop=0.8, Plot = TRUE) {  # returns the widths at Qref and prop times Qref and plots this QW curve if plot=TRUE
-  #browser()
+
   ThisRow <- which(Data$NZReach == ThisNZReach)
   if (is.null(Qref)) { Qref <- Data[ThisRow, "MALF"] } # the reference flow is the MALf from the hyd predictions data
-  QrefNew <- Data[ThisRow, "MinQ"]*Qref               #This is the new minimum flow after allocation
-  #browser()
+  QrefNew <- Data[ThisRow, "MinQ"]               #This is the new minimum flow after allocation
+
   
   #With groundwater takes it may be possible to end up with a minimum flow less than the minimum flow rule (e.g. if the reach is all aquifer sourced)
   #So we need to estimate what the MALF might be just from GW takes. Do this by finding the frequency of MALF under natural flows, then
@@ -393,7 +446,9 @@ delta.hab <- function(ThisNZReach = 13524724, Data = MyREC, FlowHab = QWH, Hab =
   Q <- FlowHab[[ThisRow]]$Q   #  get flow vs habitat
   H <- unlist(FlowHab[[ThisRow]][Hab])
   
-  if(Qref==0|is.na(Qref)==T| Data$TheTake[ThisRow]==0) {  # if Qref is zero the habitat is ZERO and so is delta-habitat
+  # if Qref is zero, or TheTake is 0 the habitat is ZERO and so is delta-habitat.
+  #Note that TheTake is not alwys set, so use identical() to also handle the case when it doesn't exist (as opposed to "==" which fails on NULL)
+  if(Qref==0|is.na(Qref)==T| identical(Data$TheTake[ThisRow],0)) {  t
     hab.Qref <- NA
     hab.Qnew <- NA
     DeltaHab <- NA

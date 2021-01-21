@@ -14,7 +14,9 @@ rm(list=ls()) # clear memory
 # Load functions
 {
   source(file.path(RFunctionsDirectory,"Flow&AbstractionFunctions.R"))   #This file has the "freq.restrict.multiband" function in it, needed to calculate take reliability
-}
+  source(file.path(RFunctionsDirectory,"HabitatFunctions.R"))            #This file has the "IntegratedWidthV2" function in it, which calculates the change in width for two different FDC's
+  
+  }
 
 # Load general data
 {
@@ -79,3 +81,5 @@ ReliabilitiesData.Frame <- cbind("SiteName"=row.names(ReliabilitiesData.Frame),R
 # Save the output to a file
 write.table(ReliabilitiesData.Frame, file = file.path(DataDirectory, "Reliabilities.csv"),sep=",",row.names = FALSE,quote = FALSE)
 
+#Undertake change in river width and habitat calculations - a demonstration example. The resut is a one row data frame with all the extra attributes attached
+ReachAttributesWithWidthandDeltaHabitats <- Run_HabitatFunctions(MyREC = MyREC,pick=11027203,MinQ=0.1,GWAlloc=0)
