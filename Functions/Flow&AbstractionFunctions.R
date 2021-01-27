@@ -297,7 +297,8 @@ freq.restrict <- function(ThisNZReach = 13524724, FDC = MyFDC,  minFlow=NULL, pr
 #' @export
 #' @examples
 #' freq.restrict.multiband()
-freq.restrict.multiband <- function(ThisNZReach = 11027203,
+freq.restrict.multiband <- function(MonitoringPointNZReach = 11027203,
+                                    FMUOutletNZReach = 11027203,
                                     minFlow=c(0.025,0.045,0.25,0.4,0.6),
                                     allocation=c(0.002,0.005,0,0.05,1),
                                     allocation_share=c(50,50,50,50,50),
@@ -307,14 +308,24 @@ freq.restrict.multiband <- function(ThisNZReach = 11027203,
                                     SiteName = "Unknown",
                                     PlotFilePath = getwd()) {
 
-  ThisRow     <- which(Data$NZReach == ThisNZReach)                          # get the parameters from the FDC dataset is this faster???
-  
-  # generate FDC.
+  #ThisRow     <- which(Data$NZReach == ThisNZReach)                          # get the parameters from the FDC dataset is this faster???
+  #browser()
+  # generate FDC for the monitoring point.
   Perc <- seq(0,1, length = 101) # Perc sets percentiles for which flows are to be generated at
-  FDC.data <- GenFDC(ThisNZReach = ThisNZReach,P=Perc, Data = MyREC)
-  names(FDC.data) <- paste("P", 100*Perc, sep="")
+  MonitoringPointFDC.data <- GenFDC(ThisNZReach = MonitoringPointNZReach,P=Perc, Data = MyREC)
+  names(MonitoringPointFDC.data) <- paste("P", 100*Perc, sep="")
   
-  AdjustedFDC <- FDCAdjust(ThisRow=ThisRow, FDC.data = FDC.data, Data = Data, GWAlloc = GWAlloc, minFlow = minFlow,allocation = allocation,allocation_share = allocation_share)
+  # generate the FDC for the FMU outlet
+  FMUOutletFDC.data <- GenFDC(ThisNZReach = FMUOutletNZReach,P=Perc, Data = MyREC)
+  names(FMUOutletFDC.data) <- paste("P", 100*Perc, sep="")
+  
+  #Get the percentiles of the minimum flows from the monitoring point's FDC
+  MonitoringPointMinFlowPercentiles <- approx(x=MonitoringPointFDC.data, y = Perc ,xout = minFlow)$y
+  
+  #Get the FMU outlet minimum flows for the same percentiles
+  FMUOutletMinFlows <- approx(x=Perc,y=FMUOutletFDC.data,xout=MonitoringPointMinFlowPercentiles)$y
+  
+  AdjustedFDC <- FDCAdjust(ThisNZReach=FMUOutletNZReach, FDC.data = FMUOutletFDC.data, Data = Data, GWAlloc = GWAlloc, minFlow = FMUOutletMinFlows,allocation = allocation,allocation_share = allocation_share)
   
   #Extract the useful stuff from theoutput of the FDCAdjust() function
   freq.reliability       <- AdjustedFDC[["ReliabilityPcts"]]

@@ -8,8 +8,11 @@ rm(list=ls()) # clear memory
   ProjectDirectory    <- "D:\\Projects\\Aqualinc\\projects\\MPI_WaterStorage\\LimSim"  #This is for Rainfall.NZ. Edit to match local directory structure
   DataDirectory       <- file.path(ProjectDirectory,"Datasets")                        #Assumes all data is in "Datasets" sub directory of the project directory
   RFunctionsDirectory <- file.path(ProjectDirectory, "Functions")                      #Assumes all additional R files are in a "Functions" sub directory of the project directory
-  FlowAllocationFile  <- file.path(ProjectDirectory,"..\\FlaxbourneExample\\WaterTakeLimits_FlaxbourneExample.csv")
-}
+  
+  #**********Change the following two lines to set the input and output file names and directories**************
+  FlowAllocationFile  <- file.path(ProjectDirectory,"..\\FlaxbourneExample\\allocation blocks example 20210128B.csv")
+  OutputReliabilitiesFile <- file.path(dirname(FlowAllocationFile), "Reliabilities20200128B.csv")  #Directory defaults to input file directory
+  }
 
 # Load functions
 {
@@ -47,15 +50,16 @@ rm(list=ls()) # clear memory
   AllocationData <- read.csv(FlowAllocationFile)
   
   # Cut down to just the columns of interest
-  AllocationData <- AllocationData[,c("SiteName","RECV1ReachID","MinQ","AllocQ","AllocShare")]
+  AllocationData <- AllocationData[,c("FMU","FMURECV1ReachID","MonitoringSiteRECV1ReachID","MinQ","AllocQ","AllocShare")]
   
-  #Split on SiteName into a list of data frames
-  SplitDataFrames <- split(AllocationData[2:5],AllocationData$SiteName)
+  #Split on FMU into a list of data frames
+  SplitDataFrames <- split(AllocationData[2:6],AllocationData$FMU)
   
   #Convert each site's data frame into a list and remove the duplicate REC SiteID's
   AllSites <- lapply(SplitDataFrames, function(x) {
     x <- as.list(x)
-    x$RECV1ReachID <- unique(x$RECV1ReachID)
+    x$FMURECV1ReachID <- unique(x$FMURECV1ReachID)
+    x$MonitoringSiteRECV1ReachID <- unique(x$MonitoringSiteRECV1ReachID)
     return(x)
   })
 }
@@ -64,22 +68,25 @@ rm(list=ls()) # clear memory
 Reliabilities <- lapply(seq_along(AllSites), function(SiteIndex){
   SiteName <- names(AllSites)[[SiteIndex]]
   EachSite <- AllSites[[SiteIndex]]
-  SiteREC  <- MyREC[match(EachSite[["RECV1ReachID"]], MyREC$NZReach),]
+  #Get the REC parameters for just the FMU outlet and monitoring site
+  SiteREC  <- MyREC[match(unlist(EachSite[c("MonitoringSiteRECV1ReachID","FMURECV1ReachID")]),MyREC$NZReach),]
   
-  Reliability <- freq.restrict.multiband(ThisNZReach = EachSite[["RECV1ReachID"]],
+  Reliability <- freq.restrict.multiband(MonitoringPointNZReach = EachSite[["MonitoringSiteRECV1ReachID"]],
+                                         FMUOutletNZReach = EachSite[["FMURECV1ReachID"]],
                                          minFlow=EachSite[["MinQ"]],
                                          allocation=EachSite[["AllocQ"]],
                                          allocation_share=EachSite[["AllocShare"]],
-                                         Data = SiteREC, FDCPlot = TRUE,SiteName = SiteName)
+                                         Data = SiteREC, FDCPlot = FALSE,SiteName = SiteName)
   return(Reliability)
 })
 
+names(Reliabilities) <- names(AllSites)
 #Convert the Reliabilities list to a data frame and add a column with the site name
 ReliabilitiesData.Frame <- as.data.frame(do.call(rbind,Reliabilities))
 ReliabilitiesData.Frame <- cbind("SiteName"=row.names(ReliabilitiesData.Frame),ReliabilitiesData.Frame)
 
 # Save the output to a file
-write.table(ReliabilitiesData.Frame, file = file.path(DataDirectory, "Reliabilities.csv"),sep=",",row.names = FALSE,quote = FALSE)
+write.table(ReliabilitiesData.Frame, file = OutputReliabilitiesFile,sep=",",row.names = FALSE,quote = FALSE)
 
 #Undertake change in river width and habitat calculations - a demonstration example. The resut is a one row data frame with all the extra attributes attached
-ReachAttributesWithWidthandDeltaHabitats <- Run_HabitatFunctions(MyREC = MyREC,pick=11027203,MinQ=0.1,GWAlloc=0)
+#ReachAttributesWithWidthandDeltaHabitats <- Run_HabitatFunctions(MyREC = MyREC,pick=11027203,MinQ=0.1,GWAlloc=0)
