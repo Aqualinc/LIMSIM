@@ -10,8 +10,8 @@ rm(list=ls()) # clear memory
   RFunctionsDirectory <- file.path(ProjectDirectory, "Functions")                      #Assumes all additional R files are in a "Functions" sub directory of the project directory
   
   #**********Change the following two lines to set the input and output file names and directories**************
-  FlowAllocationFile  <- file.path(ProjectDirectory,"..\\FlaxbourneExample\\allocation blocks example 20210128B.csv")
-  OutputReliabilitiesFile <- file.path(dirname(FlowAllocationFile), "Reliabilities20200128B.csv")  #Directory defaults to input file directory
+  FlowAllocationFile  <- file.path(ProjectDirectory,"..\\FlaxbourneExample\\allocation blocks example 20210128C.csv")
+  OutputReliabilitiesFile <- file.path(dirname(FlowAllocationFile), "Reliabilities20200128C.csv")  #Directory defaults to input file directory
   }
 
 # Load functions
@@ -50,10 +50,10 @@ rm(list=ls()) # clear memory
   AllocationData <- read.csv(FlowAllocationFile)
   
   # Cut down to just the columns of interest
-  AllocationData <- AllocationData[,c("FMU","FMURECV1ReachID","MonitoringSiteRECV1ReachID","MinQ","AllocQ","AllocShare")]
+  AllocationData <- AllocationData[,c("FMU","FMURECV1ReachID","MonitoringSiteRECV1ReachID","MinQ","AllocQ","AllocShare","AllocationName")]
   
   #Split on FMU into a list of data frames
-  SplitDataFrames <- split(AllocationData[2:6],AllocationData$FMU)
+  SplitDataFrames <- split(AllocationData[2:7],AllocationData$FMU)
   
   #Convert each site's data frame into a list and remove the duplicate REC SiteID's
   AllSites <- lapply(SplitDataFrames, function(x) {
@@ -76,14 +76,20 @@ Reliabilities <- lapply(seq_along(AllSites), function(SiteIndex){
                                          minFlow=EachSite[["MinQ"]],
                                          allocation=EachSite[["AllocQ"]],
                                          allocation_share=EachSite[["AllocShare"]],
+                                         allocation_name=EachSite[["AllocationName"]],
                                          Data = SiteREC, FDCPlot = FALSE,SiteName = SiteName)
   return(Reliability)
 })
 
 names(Reliabilities) <- names(AllSites)
+Reliabilities <- lapply(seq_along(Reliabilities), function(x){
+  #browser()
+  Reliabilities[[x]] <- cbind(SiteName=as.character(names(Reliabilities)[x]), Reliabilities[[x]])
+  return(Reliabilities[[x]])
+})
 #Convert the Reliabilities list to a data frame and add a column with the site name
 ReliabilitiesData.Frame <- as.data.frame(do.call(rbind,Reliabilities))
-ReliabilitiesData.Frame <- cbind("SiteName"=row.names(ReliabilitiesData.Frame),ReliabilitiesData.Frame)
+#ReliabilitiesData.Frame <- cbind("SiteName"=row.names(ReliabilitiesData.Frame),ReliabilitiesData.Frame)
 
 # Save the output to a file
 write.table(ReliabilitiesData.Frame, file = OutputReliabilitiesFile,sep=",",row.names = FALSE,quote = FALSE)

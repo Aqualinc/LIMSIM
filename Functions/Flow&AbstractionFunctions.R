@@ -301,7 +301,8 @@ freq.restrict.multiband <- function(MonitoringPointNZReach = 11027203,
                                     FMUOutletNZReach = 11027203,
                                     minFlow=c(0.025,0.045,0.25,0.4,0.6),
                                     allocation=c(0.002,0.005,0,0.05,1),
-                                    allocation_share=c(50,50,50,50,50),
+                                    allocation_share=c(0,0.5,0.5,0.5,0.5),
+                                    allocation_name=c("R1","R2","R3","R4","R5"),
                                     GWAlloc=0,
                                     Data = MyREC,
                                     FDCPlot = FALSE,
@@ -320,34 +321,45 @@ freq.restrict.multiband <- function(MonitoringPointNZReach = 11027203,
   names(FMUOutletFDC.data) <- paste("P", 100*Perc, sep="")
   
   #Get the percentiles of the minimum flows from the monitoring point's FDC
-  MonitoringPointMinFlowPercentiles <- approx(x=MonitoringPointFDC.data, y = Perc ,xout = minFlow)$y
+  #MonitoringPointMinFlowPercentiles <- approx(x=MonitoringPointFDC.data, y = Perc ,xout = minFlow)$y
   
   #Get the FMU outlet minimum flows for the same percentiles
-  FMUOutletMinFlows <- approx(x=Perc,y=FMUOutletFDC.data,xout=MonitoringPointMinFlowPercentiles)$y
+  #FMUOutletMinFlows <- approx(x=Perc,y=FMUOutletFDC.data,xout=MonitoringPointMinFlowPercentiles)$y
   
-  AdjustedFDC <- FDCAdjust(ThisNZReach=FMUOutletNZReach, FDC.data = FMUOutletFDC.data, Data = Data, GWAlloc = GWAlloc, minFlow = FMUOutletMinFlows,allocation = allocation,allocation_share = allocation_share)
+  #Adjust the monitoring point FDC based on the minimum flows and allocations
+  AdjustedFDC <- FDCAdjust(ThisNZReach=FMUOutletNZReach, FDC.data = MonitoringPointFDC.data, Data = Data, GWAlloc = GWAlloc, minFlow = minFlow,allocation = allocation,allocation_share = allocation_share)
   
-  #Extract the useful stuff from theoutput of the FDCAdjust() function
+  #Get the change in flow at each percentile at the monitoring point, and subtract it from the outlet's FDC
+  ChangeInFDC <- MonitoringPointFDC.data - AdjustedFDC[["AdjustedFDC"]]
+  
+  AdjustedOutletFDC <- FMUOutletFDC.data - ChangeInFDC
+  
+  #Extract the useful stuff from the output of the FDCAdjust() function
   freq.reliability       <- AdjustedFDC[["ReliabilityPcts"]]
   FDCGWTakeAffected.data <- AdjustedFDC[["AdjustedFDC"]]
   
-  # Add up the total water availability and so determine the overall reliability
-  MaxTotalAllocation <- sum(allocation,na.rm=TRUE)
-  total_available <- sum(freq.reliability/100 * allocation, na.rm=TRUE)
-  PctReliability <- round(total_available / MaxTotalAllocation * 100,1)
+  # Add up the total water availability and so determine the overall reliability. Note that bands with 0 allocation share can never be fully allocated.
+  MaxTotalAllocation <- sum(allocation * (allocation_share != 0),na.rm=TRUE)
+  #browser()
+  total_available <- sum(freq.reliability * allocation, na.rm=TRUE)
+  PctReliability <- total_available / MaxTotalAllocation
   
   #Lastly, if a plot is required, generate it
   if (FDCPlot == TRUE){
   FDCPlot(ThisNZReach = ThisNZReach, SiteName = SiteName, 
                       FDC = FDC.data,
-                      AdjustedFDC = FDCGWTakeAffected.data,
+                      AdjustedFDC = AdjustedOutletFDC,
                       minFlow=minFlow,
                       allocation=allocation,
                       reliability=freq.reliability,
                       PlotFilePath = PlotFilePath)
   }
   
-  return(c(MaxAlloc=round(MaxTotalAllocation,3),PctReliability=PctReliability))
+    #return a dataframe of PctReliability, MaxAllocation, AllocationName
+    ReliabilityDataFrame <- data.frame(MaxAllocation = allocation, PctReliability = freq.reliability,AllocationName=allocation_name)
+    ReliabilityDataFrame <- rbind(ReliabilityDataFrame,
+                                  data.frame(MaxAllocation = MaxTotalAllocation, PctReliability = PctReliability,AllocationName="Total"))
+    return(ReliabilityDataFrame)
 }# end
 
 #######################################################################################
@@ -367,9 +379,10 @@ freq.restrict.multiband <- function(MonitoringPointNZReach = 11027203,
 #' FDCPlot()
 #' 
 FDCAdjust <- function(ThisNZReach,FDC.data,Data,
-                      minFlow=c(0.025,0.045,0.25,0.4,0.6),
+                      minFlow=c(0.00,0.045,0.25,0.4,0.6),
                       allocation=c(0.002,0.005,0,0.05,1),
-                      allocation_share=c(50,50,50,50,50),
+                      allocation_share=c(0,0.5,0.5,0.5,0.5),
+                      allocation_name=c("R1","R2","R3","R4","R5"),
                       GWAlloc=0){
 
   ReachIndex <- which(Data$NZReach == ThisNZReach)
@@ -396,9 +409,7 @@ FDCAdjust <- function(ThisNZReach,FDC.data,Data,
     if(allocation[band] == 0) minFlow[band] <- 0                                              # if there are no takes there should be no restrictions (min=0)                     
     
     #Determine the "management flow" i.e. the flow at which restrictions begin
-    # This is affected by the allocation share percentage.
-    #For example, if the share is X %, then the management flow is at min_flow + allocation_flow * 100/X.
-    manFlow          <- minFlow[band]+allocation[band] * 100/allocation_share[band]          
+    manFlow          <- minFlow[band]+allocation[band]          
     
     freq.diff <-  approx(y=freqs, x=FDCGWTakeAffected.data, xout=c(manFlow, minFlow[band]))$y # estimate the percentiles for which the "restricted takes" and "stopped takes" occur
     freq.man[band]         <- freq.diff[1]
@@ -410,30 +421,35 @@ FDCAdjust <- function(ThisNZReach,FDC.data,Data,
     managed.freq.indices <- rev(which(freqs %in% managed.freqs))                      #These are the indices of the percentiles, in reverse order             
     
     #if(length(managed.freqs > 0)) managed.flows <- FDCGWTakeAffected.data[managed.freq.indices]-minFlow[band] else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
-    
-    #alternative that uses the allocation_share parameter to determine how much is available within the managed flow range
+    #browser()
+    #use the allocation_share parameter to determine how much is available within the managed flow range
     if(length(managed.freqs > 0)) {
-      managed.flows <- allocation_share[band]/100 * (FDCGWTakeAffected.data[managed.freq.indices] - minFlow[band])
+      managed.flows <- allocation_share[band] * (FDCGWTakeAffected.data[managed.freq.indices] - minFlow[band])
     }else managed.flows <- c()   #If there are no percentiles between the minimum and managed percentiles, then set the related flows to an empty set
     
     #Create a flow duration curve for the band's take
     FDC.take<-approx(x=c(100,freq.man[band],managed.freqs,freq.min[band],0),y=c(allocation[band],allocation[band],managed.flows,0,0),xout=freqs)
-    freq.reliability[band] <- mean(FDC.take$y)/allocation[band]*100  #NOTE THIS ONLY WORKS IF FREQS iS EVENLY SAMPLED
+    freq.reliability[band] <- mean(FDC.take$y)/allocation[band] * allocation_share[band]  #NOTE THIS ONLY WORKS IF FREQS iS EVENLY SAMPLED
     
-    #Need to adjust the FDC so that the next band's reliability can be assessed
-    #The new flow duration curve has flows reduced by the allocation flow from percentiles 100 to the percentile of the allocation flow + minimum flow (i.e. freq.diff[1])
-    #The new flow duration curve is unchanged below the minimum flow, i.e. from the percentile of the miniumum flow (freq.diff[2]) down to 0
-    #Between the upper and lower managed flow percentiles, the flows all go to the minimum flow.
-    #Note that in a previous version, the flow reduction in the managed flow section was a linear interpoaltion between allocation and 0. This results
-    #in a strange flow duration curve when the increase in flows between percentiles is less than the interpolated change. You can end up with a hollow in the flow duration curve.
+    #It is assumed that the allocations and bands were based on naturalised flow duration curves at the monitoring point.
+    #Even though allocations would impact the flow duration curve, this has not been done.
+    #In fact, figuring out how the allocations would affect the FDC at the monitoring point is non-trivial when it is not at the outlet, or not in the same FMU.
     
-    FDCGWTakeAffected.data<-FDCGWTakeAffected.data - FDC.take$y
+    #The following lines were used when the FDC was adjusted for the take of the lower bands.
+    # #Need to adjust the FDC so that the next band's reliability can be assessed
+    # #The new flow duration curve has flows reduced by the allocation flow from percentiles 100 to the percentile of the allocation flow + minimum flow (i.e. freq.diff[1])
+    # #The new flow duration curve is unchanged below the minimum flow, i.e. from the percentile of the miniumum flow (freq.diff[2]) down to 0
+    # #Between the upper and lower managed flow percentiles, the flows all go to the minimum flow.
+    # #Note that in a previous version, the flow reduction in the managed flow section was a linear interpoaltion between allocation and 0. This results
+    # #in a strange flow duration curve when the increase in flows between percentiles is less than the interpolated change. You can end up with a hollow in the flow duration curve.
+    # 
+    # FDCGWTakeAffected.data<-FDCGWTakeAffected.data - FDC.take$y
     
   }
-  return(list(AdjustedFDC = FDCGWTakeAffected.data,ReliabilityPcts = freq.reliability))
+  return(list(AdjustedFDC = FDCGWTakeAffected.data,ReliabilityPcts = freq.reliability,AllocationName = allocation_name))
 }
 
-
+#New function that has minflows,managedflows, allocation_share, allocation_name
 
 #######################################################################################
 #' A function to plot a flow duration curve
