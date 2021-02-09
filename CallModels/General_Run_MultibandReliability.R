@@ -10,8 +10,8 @@ rm(list=ls()) # clear memory
   RFunctionsDirectory <- file.path(ProjectDirectory, "Functions")                      #Assumes all additional R files are in a "Functions" sub directory of the project directory
   
   #**********Change the following two lines to set the input and output file names and directories**************
-  FlowAllocationFile  <- file.path(ProjectDirectory,"..\\FlaxbourneExample\\allocation blocks example 20210128C.csv")
-  OutputReliabilitiesFile <- file.path(dirname(FlowAllocationFile), "Reliabilities20200128C.csv")  #Directory defaults to input file directory
+  FlowAllocationFile  <- file.path(ProjectDirectory,"..\\ExampleData\\allocation blocks_marlborough20210203.csv")
+  OutputReliabilitiesFile <- file.path(dirname(FlowAllocationFile), "Reliabilities20210205.csv")  #Directory defaults to input file directory
   }
 
 # Load functions
