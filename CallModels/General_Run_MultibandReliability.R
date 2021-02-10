@@ -11,7 +11,7 @@ rm(list=ls()) # clear memory
   
   #**********Change the following two lines to set the input and output file names and directories**************
   FlowAllocationFile  <- file.path(ProjectDirectory,"..\\ExampleData\\allocation blocks_marlborough20210203.csv")
-  OutputReliabilitiesFile <- file.path(dirname(FlowAllocationFile), "Reliabilities20210205.csv")  #Directory defaults to input file directory
+  OutputReliabilitiesFile <- file.path(dirname(FlowAllocationFile), "Reliabilities20210211.csv")  #Directory defaults to input file directory
   }
 
 # Load functions
@@ -83,10 +83,10 @@ Reliabilities <- lapply(seq_along(AllSites), function(SiteIndex){
 
 names(Reliabilities) <- names(AllSites)
 Reliabilities <- lapply(seq_along(Reliabilities), function(x){
-  #browser()
-  Reliabilities[[x]] <- cbind(SiteName=as.character(names(Reliabilities)[x]), Reliabilities[[x]])
+  Reliabilities[[x]] <- cbind(SiteName=as.character(names(Reliabilities)[x]),FMURECV1ReachID = AllSites[[x]]$FMURECV1ReachID, Reliabilities[[x]])
   return(Reliabilities[[x]])
 })
+
 #Convert the Reliabilities list to a data frame and add a column with the site name
 ReliabilitiesData.Frame <- as.data.frame(do.call(rbind,Reliabilities))
 #ReliabilitiesData.Frame <- cbind("SiteName"=row.names(ReliabilitiesData.Frame),ReliabilitiesData.Frame)
